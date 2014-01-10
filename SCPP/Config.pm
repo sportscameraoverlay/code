@@ -187,7 +187,7 @@ sub setOverlayValues($){
         @track_pos = (1510, 710, 1918, 1078);
     }
     elsif($overlay_type =~ /speedo/) {
-        $images_per_sec = 10;
+        $images_per_sec = 2;
         $base_image_transparency = 100;
         @overlay_pos = (0, 100); #X,Y percentage position
         $overlay_size = 70;
