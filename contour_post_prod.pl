@@ -65,7 +65,7 @@ sub run($);
 Getopt::Long::Configure ("bundling");
 
 my $create_kml_only = 0;
-my $no_track = 0;
+my $no_track = 1; #Disable until we get rid of GE
 my $batch_mode = 0;
 
 GetOptions ('v+' => \$debug, 'o=s' => \$overlay_type, 'k' => \$create_kml_only, 't' => \$no_track, 's' => \$stabilize_video, 'm=s' => \$map_file, 'r=i' => \$input_vid_rotation, 'b=s' => \$batch_mode,);
