@@ -2,12 +2,8 @@
 #Script to help add GPS related info to videos taken with a contour GPS camera
 #
 #Requires the following packages if you are using ubuntu:
-# melt
-# ffmpeg
-# libgd-gd2-perl
-# libxml-libxml-perl
-#The following packages are recommended
-# libavformat-extra*
+# ffmpeg downloaded into the same dir as this program from here: http://ffmpeg.gusari.org/static. This is because for some reason ubuntu has decided to fork ffmpeg (and screw it up)
+# apt-get install perl libgd-gd2-perl libxml-libxml-perl
 #Paul Johnston
 ###############################################################################
 # History
@@ -39,6 +35,7 @@
 # 2.4  PJ 02/09/13 Added option to rotate input video file
 # 2.5  PJ 02/09/13 Added option to batch process a directory full of files
 # 2.6  PJ 27/01/14 Added option to use an external GPS file (-f option)
+# 2.7  PJ 28/01/14 Removed the requirement for melt
 #
 ###############################################################################
 
@@ -55,7 +52,7 @@ use SCPP::GoogleEarthRecord;
 use SCPP::Common;
 use SCPP::ReadGPSData;
 use SCPP::Overlay;
-use SCPP::Config qw(:debug :tmp :video :imgstab :overlay setOverlayValues $map_file);
+use SCPP::Config qw(:debug :tmp :video :vidoutset :imgstab :overlay setOverlayValues $map_file);
 
 $| = 1; #Disable buffering of stdout
 
@@ -179,6 +176,8 @@ sub run($){
     #Grab the subtiles from the video file and store video info
     my $subs_file = $tmp_dir . $subs_file_name;
     ($video_length, $orig_vid_res[0], $orig_vid_res[1], $GPS_in_video, $orig_vid_bitrate, $orig_vid_framerate) = createSubs($video_file, $subs_file);
+    #If we don't want to change the framerate:
+    $vid_out_framerate = $orig_vid_framerate if(!$vid_out_framerate);
 
     #Set the GPS data to an external source if we have requested this
     if($external_gps_file){
@@ -204,8 +203,11 @@ sub run($){
     #And check the GPS data
     $subtitle_length = checkGPSData(\%GPS_data, $video_length, $GPS_period);
     #Check if the length is within tolerance
-    if(($subtitle_length > $video_length + $vid_length_tol) or ($subtitle_length + $vid_length_tol < $video_length)){
-        die "Length of video differs from length of GPS data by " . ($video_length - $subtitle_length) . "sec. Not proceeding! (Change vid_length_tol if this is ok)!\n";
+    if($subtitle_length > $video_length + $vid_length_tol_minus){
+        die "GPS data is " . ($subtitle_length - $video_length) ."sec longer than the video. Not proceeding!\nChange vid_length_tol_minus (currently set to $vid_length_tol_minus sec) if this is ok!\n";
+    }
+    if($video_length > $subtitle_length + $vid_length_tol_plus){
+        die "Video length is " . ($video_length - $subtitle_length) ."sec longer than the GPS data. Not proceeding!\nChange vid_length_tol_plus (currently set to $vid_length_tol_plus sec) if this is ok!\n";  
     }
     GPSPointsCalc(\%GPS_data);
 
@@ -223,26 +225,15 @@ sub run($){
     #Record the KML tour in GE
     recordTourGE($kml_file, $ge_path_vid, $subtitle_length, $vid_out_framerate) if(@track_pos);
 
-    #Generate the info overlays
+    #Generate the overlays
     generateOverlays(\%GPS_data, $GPS_period, $orig_vid_res[0], $orig_vid_res[1], $subtitle_length);
 
     #Construct the final video
-    my $tmp_vid_file = "$tmp_dir/tmpVid_$$.mp4";
-    my $tmp_vid_file2 = "$tmp_dir/tmpVid2_$$.mp4";
-
-    if($stabilize_video){
-        convertFramerate($video_file,$tmp_vid_file);
-        stabilizeVideo($tmp_vid_file,$tmp_vid_file2);
-        meltVideo($tmp_vid_file2,$subtitle_length,$vid_out_file, $ge_path_vid);
-        unlink($tmp_vid_file) or die $!;
-        unlink($tmp_vid_file2) or die $!;
-    }elsif(($orig_vid_framerate != $vid_out_framerate) or $input_vid_rotation){
-        convertFramerate($video_file,$tmp_vid_file);
-        meltVideo($tmp_vid_file,$subtitle_length,$vid_out_file, $ge_path_vid);
-        unlink($tmp_vid_file) or die $!;
-    }else{
-        meltVideo($video_file,$subtitle_length,$vid_out_file, $ge_path_vid);
-    }
+    my $length;
+    $length = $video_length if($video_length <= $subtitle_length);
+    $length = $subtitle_length if($video_length > $subtitle_length);
+    my $approx_frames = $length * $vid_out_framerate;
+    createVideo($video_file,$stop_at_shortest,$vid_out_file,$images_per_sec,$insert_track,$ge_path_vid,$input_vid_rotation, $approx_frames);
 
     return 1;
 }

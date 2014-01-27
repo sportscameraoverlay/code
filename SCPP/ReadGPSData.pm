@@ -26,7 +26,7 @@ use SCPP::Config qw(:debug :tmp :video :directionsmooth $earths_radius);
 
 BEGIN {
     require Exporter;
-    our $VERSION = 1.05;
+    our $VERSION = 1.08;
     our @ISA = qw(Exporter);
     our @EXPORT = qw(createSubs readGPSfile checkGPSData GPSPointsCalc);
     our @EXPORT_OK = qw();

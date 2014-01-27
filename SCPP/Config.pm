@@ -14,15 +14,15 @@ BEGIN {
     our $VERSION = 1.01;
     our @ISA = qw(Exporter);
     our @EXPORT = qw();
-    our @EXPORT_OK = qw($debug $print_err $save_subs @capture_res $ge_load_time $ge_first_point_wait $screen_stabilise_wait $screenshot_time $debug_lvl_for_screenshot $stabilize_video $shakiness $dir_look_ahead $dir_look_behind $dir_min_dist $smooth_direction $num_rolling_avg_pts $overlay_type $images_per_sec $base_image_transparency $ge_path_vid @overlay_pos @track_pos @track_frame_colour $track_frame_thickness $overlay_size $base_image_file @green @white @blue @black @red $font_normal $font_narrow $vid_out_framerate $vid_length_tol $input_vid_rotation $vid_out_codec $vid_out_quality $audio_out_codec $audio_out_bitrate $tmp_dir $subs_file_name $SCPP_dir setOverlayValues $map_file %kml_line_styles $kml_track_style $kml_flymode $kml_altitude $kml_tilt $kml_range $kml_altmode $kml_position_marker $kml_pos_marker_scale $xml_format $min_kml_path_dist $earths_radius);
+    our @EXPORT_OK = qw($debug $print_err $save_subs @capture_res $ge_load_time $ge_first_point_wait $screen_stabilise_wait $screenshot_time $debug_lvl_for_screenshot $stabilize_video $shakiness $dir_look_ahead $dir_look_behind $dir_min_dist $smooth_direction $num_rolling_avg_pts $overlay_type $images_per_sec $base_image_transparency $ge_path_vid @overlay_pos @track_pos @track_frame_colour $track_frame_thickness $overlay_size $base_image_file @green @white @blue @black @red $font_normal $font_narrow $vid_out_framerate $vid_length_tol_plus $vid_length_tol_minus $input_vid_rotation $stop_at_shortest $vid_out_codec $vid_out_quality $audio_out_codec $audio_out_bitrate $tmp_dir $subs_file_name $SCPP_dir setOverlayValues $map_file %kml_line_styles $kml_track_style $kml_flymode $kml_altitude $kml_tilt $kml_range $kml_altmode $kml_position_marker $kml_pos_marker_scale $xml_format $min_kml_path_dist $earths_radius);
     our %EXPORT_TAGS =(
-	    debug => [qw($debug $print_err $save_subs)],
+        debug => [qw($debug $print_err $save_subs)],
         gerecord => [qw(@capture_res $ge_load_time $ge_first_point_wait $screen_stabilise_wait $screenshot_time $debug_lvl_for_screenshot)],
-	    imgstab => [qw($stabilize_video $shakiness)],
-	    directionsmooth => [qw($dir_look_ahead $dir_look_behind $dir_min_dist $smooth_direction $num_rolling_avg_pts)],
+        imgstab => [qw($stabilize_video $shakiness)],
+        directionsmooth => [qw($dir_look_ahead $dir_look_behind $dir_min_dist $smooth_direction $num_rolling_avg_pts)],
         overlay => [qw($overlay_type $images_per_sec @overlay_pos $overlay_size @track_pos @track_frame_colour $track_frame_thickness)],
-	    overlaysub => [qw($base_image_file @green @white @blue @black @red $font_normal $font_narrow)],
-        video => [qw($vid_out_framerate $vid_length_tol $base_image_transparency $ge_path_vid @track_pos $input_vid_rotation)],
+        overlaysub => [qw($base_image_file @green @white @blue @black @red $font_normal $font_narrow)],
+        video => [qw($vid_out_framerate $vid_length_tol_plus $vid_length_tol_minus $base_image_transparency $ge_path_vid @track_pos $input_vid_rotation $stop_at_shortest)],
         vidoutset => [qw($vid_out_codec $vid_out_quality $audio_out_codec $audio_out_bitrate)],
         tmp => [qw($tmp_dir $subs_file_name $SCPP_dir)],
         kml => [qw($map_file $ge_first_point_wait $smooth_direction %kml_line_styles $kml_track_style $kml_flymode $kml_altitude $kml_tilt $kml_range $kml_altmode $kml_position_marker $kml_pos_marker_scale $xml_format $min_kml_path_dist $earths_radius)],
@@ -45,13 +45,15 @@ our $SCPP_dir;
 
 #Video settings
 #################################################
-our $vid_out_framerate = 30;
-our $vid_length_tol = 30; #Number of sec that the length of subs can differ from video length
+our $vid_out_framerate = 0; #If set to zero use the same framerate as the input video
+our $vid_length_tol_plus = 2; #Number of sec that the length of the video can be longer than the subtiles
+our $vid_length_tol_minus = 300; #Number of sec that the length of the video can be shorter than the subtiles
+our $stop_at_shortest = 1; #Whether to stop after the shortest video/track/overlay has finished or not
 #Video Output settings 
 our $vid_out_codec = 'libx264';
-our $vid_out_quality = 'hq';
-our $audio_out_codec = 'aac';
-our $audio_out_bitrate = '160k';
+our $vid_out_quality = 'hq'; #not used right now
+our $audio_out_codec = 'aac'; #not used right now
+our $audio_out_bitrate = '160k';#not used right now
 our $input_vid_rotation = 0; #No rotation unless specified
 
 #Google earth path video file
@@ -204,13 +206,13 @@ sub setOverlayValues($){
     $base_image_file = "$SCPP_dir/$base_image_file";
 
     #Check that the GPS period * images per sec is a whole num
-    if(($images_per_sec * $GPS_period) !~ /^\d+\z/){
-        die "The number of images per sec($images_per_sec) multiplied by the GPS period($GPS_period) is not a whole number.\n Please check the config module!\n";
-    }
+    #if(($images_per_sec * $GPS_period) !~ /^\d+\z/){
+    #    die "The number of images per sec($images_per_sec) multiplied by the GPS period($GPS_period) is not a whole number.\n Please check the config module!\n";
+    #}
     #Check that the video framerate is divisable wholey by the GPS period
-    if(($vid_out_framerate / $images_per_sec) !~ /^\d+\z/){
-        die "The output video framerate($vid_out_framerate) is not divisable wholey by the number of images per sec($images_per_sec).\n Please check the config module!\n";
-    }
+    #if(($vid_out_framerate / $images_per_sec) !~ /^\d+\z/){
+    #    die "The output video framerate($vid_out_framerate) is not divisable wholey by the number of images per sec($images_per_sec).\n Please check the config module!\n";
+    #}
     return 1;
 }
 
