@@ -38,6 +38,7 @@
 # 2.3  PJ 19/07/13 Added option to pass in a OSM map file
 # 2.4  PJ 02/09/13 Added option to rotate input video file
 # 2.5  PJ 02/09/13 Added option to batch process a directory full of files
+# 2.6  PJ 27/01/14 Added option to use an external GPS file (-f option)
 #
 ###############################################################################
 
@@ -65,16 +66,29 @@ sub run($);
 Getopt::Long::Configure ("bundling");
 
 my $create_kml_only = 0;
-my $no_track = 1; #Disable until we get rid of GE
+my $insert_track = 0; #Disable until we get rid of GE
 my $batch_mode = 0;
+my $external_gps_file;
 
-GetOptions ('v+' => \$debug, 'o=s' => \$overlay_type, 'k' => \$create_kml_only, 't' => \$no_track, 's' => \$stabilize_video, 'm=s' => \$map_file, 'r=i' => \$input_vid_rotation, 'b=s' => \$batch_mode,);
+GetOptions ('v+' => \$debug, 'o=s' => \$overlay_type, 'k' => \$create_kml_only, 't' => \$insert_track, 's' => \$stabilize_video, 'm=s' => \$map_file, 'r=i' => \$input_vid_rotation, 'b=s' => \$batch_mode, 'f=s' => \$external_gps_file,);
 die "You must specify an input video file or directory\n" if($#ARGV != 0);
 
 #First set the CWD
 $SCPP_dir = File::Spec->rel2abs(".") or die "Failed to convert CWD to a absolute path";
 print "CWD: $SCPP_dir\n" if($debug > 1);
 
+#Set the external GPS file to an absolute path
+$external_gps_file = File::Spec->rel2abs($external_gps_file) or die "Failed to convert 
+$external_gps_file to a absolute path" if($external_gps_file);
+
+#Set the map file to an absolute path
+$map_file = File::Spec->rel2abs($map_file) or die "Failed to convert 
+$map_file to a absolute path" if($map_file);
+
+###############################################################################
+#Either process all files in the directory or just a single file.
+#This code (if there are no errors) will call the run subroutine below
+###############################################################################
 #If we are processing a directory full of files find them all first
 if($batch_mode){
     my $directory = $ARGV[0];
@@ -128,7 +142,7 @@ else{
 }
 
 ###############################################################################
-#Main Program
+#Main Program (run subbroutine)
 ###############################################################################
 sub run($){
     (my $video_file) = @_; 
@@ -139,6 +153,7 @@ sub run($){
     #Some Global vars that get set during running
     my $video_length;
     my @orig_vid_res;
+    my $GPS_in_video;
     my $orig_vid_bitrate;
     my $orig_vid_framerate;
     my $subtitle_length;
@@ -163,7 +178,16 @@ sub run($){
 
     #Grab the subtiles from the video file and store video info
     my $subs_file = $tmp_dir . $subs_file_name;
-    ($video_length, $orig_vid_res[0], $orig_vid_res[1], $orig_vid_bitrate, $orig_vid_framerate) = createSubs($video_file, $subs_file);
+    ($video_length, $orig_vid_res[0], $orig_vid_res[1], $GPS_in_video, $orig_vid_bitrate, $orig_vid_framerate) = createSubs($video_file, $subs_file);
+
+    #Set the GPS data to an external source if we have requested this
+    if($external_gps_file){
+        print "Using external GPS file $external_gps_file\n" if($debug);
+        $subs_file = $external_gps_file;
+    }else{
+        #Otherwise check that there is GPS data in the video file!
+        die "No GPS data in video file and external GPS file not specified with -f option. Cannot continue!\n" unless($GPS_in_video);
+    }
 
     #Read the GPS info from the subtitles file 
     ($GPS_period, my $subs_file_err) = readGPSfile(\%GPS_data, $subs_file);
@@ -175,10 +199,14 @@ sub run($){
 
     #Now we have the GPS period we can set the overlay type
     setOverlayValues($GPS_period);
-    undef @track_pos if($no_track); #Turn off the track if requested
+    undef @track_pos unless($insert_track); #Turn off the track if requested
 
     #And check the GPS data
     $subtitle_length = checkGPSData(\%GPS_data, $video_length, $GPS_period);
+    #Check if the length is within tolerance
+    if(($subtitle_length > $video_length + $vid_length_tol) or ($subtitle_length + $vid_length_tol < $video_length)){
+        die "Length of video differs from length of GPS data by " . ($video_length - $subtitle_length) . "sec. Not proceeding! (Change vid_length_tol if this is ok)!\n";
+    }
     GPSPointsCalc(\%GPS_data);
 
     #Generate the KML file for GE

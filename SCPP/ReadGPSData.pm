@@ -11,6 +11,8 @@
 # 1.04  PJ 20/06/13 Exit the direction loop early if not enough data
 # 1.05  PJ 22/06/13 Still add an entry into the GPS_data hash if the checksum is invalid
 # 1.06  PJ 25/06/13 Added code to calculate rolling average of the direction
+# 1.07  PJ 26/01/14 Modified the timeToEpoch subroutine to cope with subsecond intervals with more than 2 decimal places
+# 1.08  PJ 27/01/14 Modified createSubs subroutine to cater for video files without GPS info. Also bug fixes.
 #
 ###############################################################################
 
@@ -56,15 +58,16 @@ sub GPSPointsCalc($);
 sub createSubs($$){
     (my $video_file, my $subs_file) = @_;
 
-	my $process_name = "Extracting GPS data from video";
+    my $subs_present = 1;
+
+    my $process_name = "Extracting GPS data from video";
     print "$process_name...\n" if($debug); 
-	progress($process_name, 0);
+    progress($process_name, 0);
 
     my $cmd = "ffmpeg -loglevel info -i \'$video_file\' -vn -an -scodec copy -f rawvideo $subs_file 2>&1";
     print "SYS_CMD: $cmd\n" if($debug > 1);
-	my @output = `$cmd`;
-	my $exitstatus = $? >> 8;
-	die "\nFFMPEG failed with exitcode: $exitstatus\n\n@output\n" if( $exitstatus != 0 );
+    my @output = `$cmd`;
+    my $exitstatus = $? >> 8;
     print "@output\n" if($debug > 3);
 
     #Grab info about the video
@@ -80,9 +83,20 @@ sub createSubs($$){
             $bitrate = $3;
             $framerate = $5;
         }
+        #Check if subtiles are not present:
+        #Output file #0 does not contain any stream
+        if( $line =~ /Output file #0 does not contain any stream/){
+            $subs_present = 0;
+        }
     }
-	progress($process_name, 100);
-    return($video_length, @res, $bitrate, $framerate);
+
+    #If we don't see the line 'Output file #0 does not contain any stream' exit and display the error
+    if($subs_present){
+        die "\nFFMPEG failed with exitcode: $exitstatus\n\n@output\n" if( $exitstatus != 0 );
+    }
+
+    progress($process_name, 100);
+    return($video_length, @res, $subs_present, $bitrate, $framerate);
 }
 
 ###############################################################################
@@ -131,15 +145,15 @@ sub createSubs($$){
 sub readGPSfile($$){
     (my $GPS_data_ref, my $file) = @_;
 
-	my $process_name = "Reading GPS data";
+    my $process_name = "Reading GPS data";
     print "$process_name...\n" if($debug); 
-	progress($process_name, 0);
+    progress($process_name, 0);
 
     my ( @first_date , @second_date, @third_date );
     my $GPS_period;
     my $subs_file_err; #Gets set if we encouter an error
-	#These should be all the vars that the contour GPS outputs....
-	my ( $time, $lat, $latNS, $long, $longEW, $fixStatus, $validity, $numSat, $HDOP, $altitude, $geoidalSeparation, $speed, $trueCourse, $date ); 
+    #These should be all the vars that the contour GPS outputs....
+    my ( $time, $lat, $latNS, $long, $longEW, $fixStatus, $validity, $numSat, $HDOP, $altitude, $geoidalSeparation, $speed, $trueCourse, $date ); 
 
     my $line_num = 0; #line number in the subtitles file (used for debug if anything fails later)
     my $GPSline = 0; #Incremented for every occurance of GPRMC data found and used in the GPSdata hash as the key
@@ -160,11 +174,11 @@ sub readGPSfile($$){
         my $gps_checksum = validateGpsChecksum($line);
         if($gps_checksum eq -1) {
             ##Separate GPRMC and GPGGA data
-			if ($line =~ /GPGGA,(.+)/) {
+            if ($line =~ /GPGGA,(.+)/) {
                 print "A" if($debug > 3);
-				#We only care about the info after the GPGGA
-				$line=$1;
-			    ($time, $lat, $latNS, $long, $longEW, $fixStatus, $numSat, $HDOP, $altitude, $geoidalSeparation) = split(/,/, $line);
+                #We only care about the info after the GPGGA
+                $line=$1;
+                ($time, $lat, $latNS, $long, $longEW, $fixStatus, $numSat, $HDOP, $altitude, $geoidalSeparation) = split(/,/, $line);
 			
                 addGPSData($GPSline, 'time', $time, $GPS_data_ref);
                 addGPSData($GPSline, 'lat', $lat, $GPS_data_ref);
@@ -243,9 +257,9 @@ sub readGPSfile($$){
         print "." if($debug > 2);
     }
     print "\n" if($debug > 2);
-	close FILE or die $!;
-	close SUBS_GPGGA or die $! if($save_subs);
-	close SUBS_GPRMC or die $! if($save_subs);
+    close FILE or die $!;
+    close SUBS_GPGGA or die $! if($save_subs);
+    close SUBS_GPRMC or die $! if($save_subs);
 
     #Check that we have successfully calculated the GPS_period otherwise there is no point continuing!
     die "\n\nNo valid dates found in GPS data, Cannot continue!\nThis is probably due to no GPS fix\n" if(!$GPS_period);
@@ -261,7 +275,7 @@ sub readGPSfile($$){
 #Validates the gps string passed in against the checksum value on the end
 ###############################################################################
 sub validateGpsChecksum($) {
-	(my $gps_string) = @_;
+    (my $gps_string) = @_;
 
     if($gps_string =~ /\$(GP.+)\*(..)/) {;
         my $gps_data = $1;
@@ -317,9 +331,9 @@ sub addGPSData($$$$) {
 sub checkGPSData($$$){
     (my $GPS_data_ref, my $video_length, my $GPS_period) = @_;
 
-	my $process_name = "Checking number of GPS points against video length";
+    my $process_name = "Checking number of GPS points against video length";
     print "$process_name...\n" if($debug); 
-	progress($process_name, 0);
+    progress($process_name, 0);
 
     my $subtitle_length;
     #First remove any duplicate times
@@ -336,7 +350,7 @@ sub checkGPSData($$$){
             }
         }
     }
-	progress($process_name, 80);
+    progress($process_name, 80);
 
     #Calculate the length (time) of the subtitles
     my $GPS_data_lines = keys %{$GPS_data_ref};
@@ -344,15 +358,9 @@ sub checkGPSData($$$){
 
     print "Video Length $video_length sec\n" if($debug);
     print "Subtitles Length $subtitle_length sec\n" if($debug);
-	progress($process_name, 100);
+    progress($process_name, 100);
 
-    #Check if the length is within tolerance
-    return $subtitle_length if($subtitle_length == $video_length);
-    return $subtitle_length if(($subtitle_length > $video_length) and ($subtitle_length <= $video_length + $vid_length_tol));
-    return $subtitle_length if(($subtitle_length < $video_length) and ($subtitle_length + $vid_length_tol >= $video_length));
-
-    #Otherwise die
-    die "Length of video differs from length of GPS data by " . ($video_length - $subtitle_length) . "sec. Not proceeding! (Change vid_length_tol if this is ok)!\n";
+    return $subtitle_length;
 }
 
 ###############################################################################
@@ -365,23 +373,27 @@ sub checkGPSData($$$){
 ###############################################################################
 sub timeToEpoch($$){
     (my $time, my $date) = @_;
+    print "Converting time to Epoch\n" if($debug > 4);
 
+    my $part_sec = 0;
     #Check that the time and dates that are passed are valid 
-    if (($time =~ /^(\d+(\.\d+)?)$/) and ($date =~ /^\d{6}$/)) {
+    if ($time =~ /^(\d+(\.\d+)?)$/) {
+        $part_sec = $2 if ($2);
+        if ($date =~ /^\d{6}$/) {
 
-        my $hour = substr($time,0,2);
-        my $min = substr($time,2,2);
-        my $sec = substr($time,4,2);
-        my $part_sec = substr($time,6,2) if(length($time > 7));
-        my $mday = substr($date,0,2);
-        my $mon = (substr($date,2,2) - 1);
-        my $year = substr($date,4,2);
+            my $hour = substr($time,0,2);
+            my $min = substr($time,2,2);
+            my $sec = substr($time,4,2);
+            my $mday = substr($date,0,2);
+            my $mon = (substr($date,2,2) - 1);
+            my $year = substr($date,4,2);
         
-        return timegm($sec,$min,$hour,$mday,$mon,$year) + $part_sec;
-    }else {
-        #Otherwise return -1 if date/time is invalid
-        return -1;
+            print "Year: $year, Month: $mon, Day: $mday, Hour: $hour, Min: $min, Sec: $sec, Partsec: $part_sec\n" if($debug > 5);
+            return timegm($sec,$min,$hour,$mday,$mon,$year) + $part_sec;
+        }
     }
+    #Otherwise return -1 if date/time is invalid
+    return -1;
 }
 
 ###############################################################################
@@ -390,9 +402,9 @@ sub timeToEpoch($$){
 sub GPSPointsCalc($){
     (my $GPS_data_ref) = @_;
 
-	my $process_name = "Calculating Position and Direction data";
+    my $process_name = "Calculating Position and Direction data";
     print "$process_name...\n" if($debug); 
-	progress($process_name, 0);
+    progress($process_name, 0);
 
     my $first_GPS_point;
     my $last_GPS_point;
@@ -418,7 +430,7 @@ sub GPSPointsCalc($){
         }
         print "Line $GPSline has invalid GPS data\n" if($debug > 1);
     }
-	progress($process_name, 30);
+    progress($process_name, 30);
 
 
     #Then we need to find the First and last reliable GPS points
@@ -430,7 +442,7 @@ sub GPSPointsCalc($){
             last;
         }
     }
-	progress($process_name, 40);
+    progress($process_name, 40);
     #Last point
     foreach my $GPSline (sort {$b <=> $a} keys %{$GPS_data_ref}){
         if(defined(${$GPS_data_ref}{$GPSline}{'decimal_lat'})){
@@ -439,7 +451,11 @@ sub GPSPointsCalc($){
             last;
         }
     }
-	progress($process_name, 50);
+
+    #Die if we do not have a first and last good GPS points
+    die "\nNo GPS lat/long data in GPS file!\n" if(!defined($first_GPS_point) or !defined($last_GPS_point));
+
+    progress($process_name, 50);
 
     #Now we need to loop through the GPS_data hash and fill in any missing values that were not valid above
     print "Checking and filling in missing Lat/Long points\n" if($debug > 1);
@@ -448,8 +464,8 @@ sub GPSPointsCalc($){
         print "$GPSline " if($debug > 2);
         #Count the number of missing values
         my $missing_line_count = 0;
-        while(!defined(${$GPS_data_ref}{$GPSline + $missing_line_count}{'decimal_lat'})){
-            $missing_line_count++;
+        foreach my $GPSline (keys %{$GPS_data_ref}){
+            $missing_line_count++ if(!defined(${$GPS_data_ref}{$GPSline}{'decimal_lat'}));
         }
         #fix the missing data
         if($missing_line_count > 0){

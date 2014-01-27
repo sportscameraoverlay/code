@@ -46,7 +46,7 @@ our $SCPP_dir;
 #Video settings
 #################################################
 our $vid_out_framerate = 30;
-our $vid_length_tol = 2; #Number of sec that the length of subs can differ from video length
+our $vid_length_tol = 30; #Number of sec that the length of subs can differ from video length
 #Video Output settings 
 our $vid_out_codec = 'libx264';
 our $vid_out_quality = 'hq';
