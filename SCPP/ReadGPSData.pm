@@ -64,7 +64,11 @@ sub createSubs($$){
     print "$process_name...\n" if($debug); 
     progress($process_name, 0);
 
-    my $cmd = "ffmpeg -loglevel info -i \'$video_file\' -vn -an -scodec copy -f rawvideo $subs_file 2>&1";
+    #If there is a ffmpeg binary in the CWD then use that
+    my $ffmpeg_cmd = "ffmpeg";
+    $ffmpeg_cmd = "./ffmpeg" if(-f "./ffmpeg");
+
+    my $cmd = "$ffmpeg_cmd -loglevel info -i \'$video_file\' -vn -an -scodec copy -f rawvideo $subs_file 2>&1";
     print "SYS_CMD: $cmd\n" if($debug > 1);
     my @output = `$cmd`;
     my $exitstatus = $? >> 8;
