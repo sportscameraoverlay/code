@@ -65,12 +65,14 @@ check_env();
 Getopt::Long::Configure ("bundling");
 
 my $create_kml_only = 0;
+my $no_kml = 0;
 my $insert_track = 0; #Disable until we get rid of GE
 my $batch_mode = 0;
 my $external_gps_file;
 
-GetOptions ('v+' => \$debug, 'o=s' => \$overlay_type, 'k' => \$create_kml_only, 't' => \$insert_track, 's' => \$stabilize_video, 'm=s' => \$map_file, 'r=i' => \$input_vid_rotation, 'b=s' => \$batch_mode, 'f=s' => \$external_gps_file,);
+GetOptions ('v+' => \$debug, 'o=s' => \$overlay_type, 'k' => \$create_kml_only, 'K' => \$no_kml, 't' => \$insert_track, 's' => \$stabilize_video, 'm=s' => \$map_file, 'r=i' => \$input_vid_rotation, 'b=s' => \$batch_mode, 'f=s' => \$external_gps_file,);
 die "You must specify an input video file or directory\n" if($#ARGV != 0);
+die "Options -K and -k cannot be used together RTFM!\n" if($create_kml_only and $no_kml); 
 
 #First set the CWD
 $SCPP_dir = File::Spec->rel2abs(".") or die "Failed to convert CWD to a absolute path";
@@ -216,7 +218,7 @@ sub run($){
     GPSPointsCalc(\%GPS_data);
 
     #Generate the KML file for GE
-    genKML(\%GPS_data, $kml_file, $project_name, $GPS_period) if(@track_pos);
+    genKML(\%GPS_data, $kml_file, $project_name, $GPS_period) unless($no_kml);
 
     #If there are no errors in the subtitles remove the tmp file
     unlink($subs_file) or die $! if(!$subs_file_err);
