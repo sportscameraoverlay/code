@@ -6,19 +6,22 @@
 ###############################################################################
 # 1.00  PJ 26/04/13 First version as perl module
 # 1.01  PJ 05/05/13 Turned off progress display when debug is on
+# 2.00  PJ 12/04/14 Added Environment checks subroutine
 #
 ###############################################################################
 
 package SCPP::Common; 
 use strict;
 use warnings;
-use SCPP::Config qw(:debug);
+use SCPP::Config qw(:debug $ffmpeg_64bit_url $ffmpeg_32bit_url);
+use File::Fetch;
+use Archive::Extract;
 
 BEGIN {
     require Exporter;
     our $VERSION = 1.01;
     our @ISA = qw(Exporter);
-    our @EXPORT = qw(progress);
+    our @EXPORT = qw(progress check_env);
     our @EXPORT_OK = qw();
 }
 
@@ -52,5 +55,30 @@ sub progress($$){
 		print $process_name . "... Done\n";
 	}
     return 1;
+}
+###############################################################################
+#Check the envrionment to make sure all is well
+#This subroutine will download the correct version of ffmpeg if it is not available
+#More check should be done here, but lets start with getting the right FFMPEG! 
+###############################################################################
+sub check_env{
+
+    #Check if FFMPEG exists
+    unless( -f 'ffmpeg' and -x 'ffmpeg' ){
+        print "No FFMPEG binary found in sportscameraoverlay folder....\n";
+        chomp (my $arch = `uname -m`);
+        my $url = $ffmpeg_32bit_url;
+        $url = $ffmpeg_64bit_url if( $arch =~ /64/ );
+        
+        print "Trying to download ffmpeg from $url\n";
+        #Download ffmpeg
+        my $ff = File::Fetch->new(uri => $url);
+        my $ffmpeg_tar = $ff->fetch() or die $ff->error; 
+        #And extract it
+        my $ae = Archive::Extract->new(archive => $ffmpeg_tar);
+        $ae->extract or die $ae->error;
+        #Then remove the archive file
+        unlink $ffmpeg_tar or die $!;
+    }
 }
 1;

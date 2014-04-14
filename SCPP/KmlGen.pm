@@ -8,6 +8,7 @@
 # 1.01  PJ 05/05/13 Updated debug output and added progress
 # 1.02  PJ 09/06/13 Added start delay
 # 1.03  PJ 19/07/13 Added skiruns and chairlifts to KML from a OSM file
+# 1.04  PJ 15/04/14 Fixed GPS period bug
 #
 ###############################################################################
 
@@ -21,7 +22,7 @@ use SCPP::Common;
 
 BEGIN {
     require Exporter;
-    our $VERSION = 1.02;
+    our $VERSION = 1.04;
     our @ISA = qw(Exporter);
     our @EXPORT = qw(genKML);
     our @EXPORT_OK = qw();
@@ -44,6 +45,9 @@ sub genKML($$$$){
     my $process_name = "Creating KML tour file";
     print "$process_name...\n" if($debug);
     progress($process_name, 0);
+
+        #We actuatly want the GPS period in seconds not milliseconds
+        $GPS_period = ($GPS_period / 1000);
 
 	#Print the static header info
 	my $xml = XML::LibXML::Document->new('1.0', 'utf-8');

@@ -8,6 +8,7 @@
 # 1.01  PJ 05/05/13 Updated debug output
 # 1.02  PJ 20/06/13 Draw a box around the track video if its present
 # 1.03  PJ 20/06/13 Updated debug settings and fixed a few bugs
+# 1.04  PJ 15/04/14 Fixed gps period bug (and a bit of tidying up)
 #
 ###############################################################################
 
@@ -22,7 +23,7 @@ use SCPP::Config qw(:debug :tmp :overlay);
 
 BEGIN {
     require Exporter;
-    our $VERSION = 1.03;
+    our $VERSION = 1.04;
     our @ISA = qw(Exporter);
     our @EXPORT = qw(generateOverlays);
     our @EXPORT_OK = qw();
@@ -33,7 +34,7 @@ my $invalid_speed = "---";
 my $invalid_time = -1;
 my $knots2speed = 1.852; #Conversion from knots to km/h
 
-sub generateOverlays($$$$$);
+sub generateOverlays($$$$$$$);
 sub positionImage($$$$$$$);
 
 ##############################################################################
@@ -41,26 +42,25 @@ sub positionImage($$$$$$$);
 #Requires the following:
 #1) A reference to the GPS data hash
 #2) The GPS period
-
-#4) The (X) size to create the overlay
-#5) The (Y) size to create the overlay
-
-#8)
+#3) The (X) size to create the overlay
+#4) The (Y) size to create the overlay
+#5) The number of fps of images (Images per second)
+#6) The type of overlay required
 ##############################################################################
-sub generateOverlays($$$$$){
+sub generateOverlays($$$$$$$){
     my @overlay_res;
-    (my $GPS_data_ref, my $GPS_period, $overlay_res[0], $overlay_res[1], my $length) = @_;
+    (my $GPS_data_ref, my $GPS_period, $overlay_res[0], $overlay_res[1], my $length, my $fps, my $OLtype) = @_;
 
     my $process_name = "Creating overlay images";
     print "$process_name...\n" if($debug);
     progress($process_name, 0);
 
-    print "Images per sec: $images_per_sec\n" if($debug);
-    print "GPS Period: $GPS_period\n" if($debug);
+    print "Images per sec: $fps\n" if($debug);
+    print "GPS Period (in milliseconds): $GPS_period\n" if($debug);
    
     #Calculate the number of images that need to be generated for each GPS reading (for interpolation of speed data)
-    my $num_interpolated_pts = $images_per_sec * $GPS_period;
-    my $num_of_images = $length * $images_per_sec; #Number of images for progess display
+    my $num_interpolated_pts = ($fps * $GPS_period) / 1000;
+    my $num_of_images = $length * $fps; #Number of images for progess display
 
     my $image_num = 0; #We have to use this as melt cant deal with any missing numbers in a sequence
     my $maxspeed = 0;
@@ -112,10 +112,10 @@ sub generateOverlays($$$$$){
             }
         
             #Create the overlays for the digital type
-            $bim = digital($altitude, $current_speed, $maxspeed, $time) if($overlay_type eq 'digital');
+            $bim = digital($altitude, $current_speed, $maxspeed, $time) if($OLtype eq 'digital');
 
             #Create the overlays for the speedo type
-            $bim = speedo($altitude, $current_speed, $maxspeed, $time) if($overlay_type eq 'speedo');
+            $bim = speedo($altitude, $current_speed, $maxspeed, $time) if($OLtype eq 'speedo');
        
             #Place the overlay in the right position/size
             positionImage($bim, $overlay_pos[0], $overlay_pos[1], $overlay_size, $image_num, $overlay_res[0], $overlay_res[1]);

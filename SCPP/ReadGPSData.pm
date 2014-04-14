@@ -13,6 +13,7 @@
 # 1.06  PJ 25/06/13 Added code to calculate rolling average of the direction
 # 1.07  PJ 26/01/14 Modified the timeToEpoch subroutine to cope with subsecond intervals with more than 2 decimal places
 # 1.08  PJ 27/01/14 Modified createSubs subroutine to cater for video files without GPS info. Also bug fixes.
+# 1.09  PJ 15/04/14 Fixed rounding bug relating to gps period/epoch time. Now time is in ms
 #
 ###############################################################################
 
@@ -26,7 +27,7 @@ use SCPP::Config qw(:debug :tmp :video :directionsmooth $earths_radius);
 
 BEGIN {
     require Exporter;
-    our $VERSION = 1.08;
+    our $VERSION = 1.09;
     our @ISA = qw(Exporter);
     our @EXPORT = qw(createSubs readGPSfile checkGPSData GPSPointsCalc);
     our @EXPORT_OK = qw();
@@ -358,7 +359,7 @@ sub checkGPSData($$$){
 
     #Calculate the length (time) of the subtitles
     my $GPS_data_lines = keys %{$GPS_data_ref};
-    $subtitle_length = $GPS_data_lines * $GPS_period;
+    $subtitle_length = $GPS_data_lines * ($GPS_period / 1000);
 
     print "Video Length $video_length sec\n" if($debug);
     print "Subtitles Length $subtitle_length sec\n" if($debug);
@@ -368,10 +369,12 @@ sub checkGPSData($$$){
 }
 
 ###############################################################################
-#Subroutine that converts GPS date/time into epoch
+#Subroutine that converts GPS date/time into epoch x1000 (in milliseconds)
 #Time example: 171140.50 <- 5:11:40.5PM
 #Date example: 220812 <- 22/08/2012
 #Note input is in UTC time
+#Note since some cameras can provide a gps lock faster than once every second
+#we must be more accurate with time here - thats why its epoch x 1000 (in ms)
 #Requires a time and a date in the above format
 #Returns the epoch value
 ###############################################################################
@@ -379,10 +382,13 @@ sub timeToEpoch($$){
     (my $time, my $date) = @_;
     print "Converting time to Epoch\n" if($debug > 4);
 
-    my $part_sec = 0;
+    my $millisec = 0;
     #Check that the time and dates that are passed are valid 
     if ($time =~ /^(\d+(\.\d+)?)$/) {
-        $part_sec = $2 if ($2);
+        if ($2){
+            $millisec = $2 * 1000;
+            $millisec = sprintf("%.0f", $millisec);
+        }
         if ($date =~ /^\d{6}$/) {
 
             my $hour = substr($time,0,2);
@@ -392,8 +398,8 @@ sub timeToEpoch($$){
             my $mon = (substr($date,2,2) - 1);
             my $year = substr($date,4,2);
         
-            print "Year: $year, Month: $mon, Day: $mday, Hour: $hour, Min: $min, Sec: $sec, Partsec: $part_sec\n" if($debug > 5);
-            return timegm($sec,$min,$hour,$mday,$mon,$year) + $part_sec;
+            print "Year: $year, Month: $mon, Day: $mday, Hour: $hour, Min: $min, Sec: $sec, millisec: $millisec\n" if($debug > 5);
+            return (timegm($sec,$min,$hour,$mday,$mon,$year) * 1000) + $millisec;
         }
     }
     #Otherwise return -1 if date/time is invalid

@@ -2,7 +2,6 @@
 #Script to help add GPS related info to videos taken with a contour GPS camera
 #
 #Requires the following packages if you are using ubuntu:
-# ffmpeg downloaded into the same dir as this program from here: http://ffmpeg.gusari.org/static. This is because for some reason ubuntu has decided to fork ffmpeg (and screw it up)
 # apt-get install perl libgd-gd2-perl libxml-libxml-perl
 #Paul Johnston
 ###############################################################################
@@ -36,6 +35,7 @@
 # 2.5  PJ 02/09/13 Added option to batch process a directory full of files
 # 2.6  PJ 27/01/14 Added option to use an external GPS file (-f option)
 # 2.7  PJ 28/01/14 Removed the requirement for melt
+# 2.8  PJ 15/04/14 Few small bugfixes, Also downloading ffmpeg if it doesn't exist
 #
 ###############################################################################
 
@@ -60,6 +60,8 @@ sub run($);
 ###############################################################################
 #Read in command line arguments
 ###############################################################################
+check_env();
+
 Getopt::Long::Configure ("bundling");
 
 my $create_kml_only = 0;
@@ -73,6 +75,9 @@ die "You must specify an input video file or directory\n" if($#ARGV != 0);
 #First set the CWD
 $SCPP_dir = File::Spec->rel2abs(".") or die "Failed to convert CWD to a absolute path";
 print "CWD: $SCPP_dir\n" if($debug > 1);
+
+#Lets setup presets for the overlay type
+setOverlayValues();
 
 #Set the external GPS file to an absolute path
 $external_gps_file = File::Spec->rel2abs($external_gps_file) or die "Failed to convert 
@@ -196,9 +201,8 @@ sub run($){
     print "Video Framerate: $orig_vid_framerate\n" if($debug);
     print "GPS Period: $GPS_period\n" if($debug);
 
-    #Now we have the GPS period we can set the overlay type
-    setOverlayValues($GPS_period);
-    undef @track_pos unless($insert_track); #Turn off the track if requested
+    #Turn off the track if requested
+    undef @track_pos unless($insert_track or $create_kml_only);
 
     #And check the GPS data
     $subtitle_length = checkGPSData(\%GPS_data, $video_length, $GPS_period);
@@ -226,7 +230,7 @@ sub run($){
     recordTourGE($kml_file, $ge_path_vid, $subtitle_length, $vid_out_framerate) if(@track_pos);
 
     #Generate the overlays
-    generateOverlays(\%GPS_data, $GPS_period, $orig_vid_res[0], $orig_vid_res[1], $subtitle_length);
+    generateOverlays(\%GPS_data, $GPS_period, $orig_vid_res[0], $orig_vid_res[1], $subtitle_length, $images_per_sec, $overlay_type);
 
     #Construct the final video
     my $length;

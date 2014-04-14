@@ -14,7 +14,7 @@ BEGIN {
     our $VERSION = 1.01;
     our @ISA = qw(Exporter);
     our @EXPORT = qw();
-    our @EXPORT_OK = qw($debug $print_err $save_subs @capture_res $ge_load_time $ge_first_point_wait $screen_stabilise_wait $screenshot_time $debug_lvl_for_screenshot $stabilize_video $shakiness $dir_look_ahead $dir_look_behind $dir_min_dist $smooth_direction $num_rolling_avg_pts $overlay_type $images_per_sec $base_image_transparency $ge_path_vid @overlay_pos @track_pos @track_frame_colour $track_frame_thickness $overlay_size $base_image_file @green @white @blue @black @red $font_normal $font_narrow $vid_out_framerate $vid_length_tol_plus $vid_length_tol_minus $input_vid_rotation $stop_at_shortest $vid_out_codec $vid_out_quality $audio_out_codec $audio_out_bitrate $tmp_dir $subs_file_name $SCPP_dir setOverlayValues $map_file %kml_line_styles $kml_track_style $kml_flymode $kml_altitude $kml_tilt $kml_range $kml_altmode $kml_position_marker $kml_pos_marker_scale $xml_format $min_kml_path_dist $earths_radius);
+    our @EXPORT_OK = qw($debug $print_err $save_subs @capture_res $ge_load_time $ge_first_point_wait $screen_stabilise_wait $screenshot_time $debug_lvl_for_screenshot $stabilize_video $shakiness $dir_look_ahead $dir_look_behind $dir_min_dist $smooth_direction $num_rolling_avg_pts $overlay_type $images_per_sec $base_image_transparency $ge_path_vid @overlay_pos @track_pos @track_frame_colour $track_frame_thickness $overlay_size $base_image_file @green @white @blue @black @red $font_normal $font_narrow $vid_out_framerate $vid_length_tol_plus $vid_length_tol_minus $input_vid_rotation $stop_at_shortest $vid_out_codec $vid_out_quality $audio_out_codec $audio_out_bitrate $tmp_dir $subs_file_name $SCPP_dir setOverlayValues $map_file %kml_line_styles $kml_track_style $kml_flymode $kml_altitude $kml_tilt $kml_range $kml_altmode $kml_position_marker $kml_pos_marker_scale $xml_format $min_kml_path_dist $earths_radius $ffmpeg_64bit_url $ffmpeg_32bit_url);
     our %EXPORT_TAGS =(
         debug => [qw($debug $print_err $save_subs)],
         gerecord => [qw(@capture_res $ge_load_time $ge_first_point_wait $screen_stabilise_wait $screenshot_time $debug_lvl_for_screenshot)],
@@ -42,6 +42,10 @@ our $subs_file_name = "contour_auth_subs.log";
 
 our $earths_radius = 6378000; #in metres
 our $SCPP_dir;
+
+#FFMPEG download links
+our $ffmpeg_64bit_url = 'http://ffmpeg.gusari.org/static/64bit/ffmpeg.static.64bit.latest.tar.gz';
+our $ffmpeg_32bit_url = 'http://ffmpeg.gusari.org/static/32bit/ffmpeg.static.32bit.latest.tar.gz';
 
 #Video settings
 #################################################
@@ -176,8 +180,7 @@ our @track_pos; #If track pos is undef or 0 no GE track will be recorded
 #This subroutine contains the common config between overlay types
 #It needs to be called after the GPS period is know so it can check the settings
 ###############################################################################
-sub setOverlayValues($){
-    (my $GPS_period) = @_;
+sub setOverlayValues(){
 
     #Overlay types
     if($overlay_type =~ /digital/) {
@@ -205,14 +208,6 @@ sub setOverlayValues($){
     #Convert base image file to an absolute path
     $base_image_file = "$SCPP_dir/$base_image_file";
 
-    #Check that the GPS period * images per sec is a whole num
-    #if(($images_per_sec * $GPS_period) !~ /^\d+\z/){
-    #    die "The number of images per sec($images_per_sec) multiplied by the GPS period($GPS_period) is not a whole number.\n Please check the config module!\n";
-    #}
-    #Check that the video framerate is divisable wholey by the GPS period
-    #if(($vid_out_framerate / $images_per_sec) !~ /^\d+\z/){
-    #    die "The output video framerate($vid_out_framerate) is not divisable wholey by the number of images per sec($images_per_sec).\n Please check the config module!\n";
-    #}
     return 1;
 }
 
