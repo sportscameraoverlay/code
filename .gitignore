@@ -1,3 +1,5 @@
 #Ignore GPX files that the program creates
 subs-GPGGA.txt
 subs-GPRMC.txt
+ffmpeg
+ffprobe

@@ -12,6 +12,7 @@
 # 2.01  PJ 09/06/13 Fixed many bugs!
 # 2.02  PJ 20/06/13 changed geometry to use arrays.
 # 2.03  PJ 20/06/13 Fixed record res bug (must be divisable by 2).
+# 2.04  PJ 26/04/14 Fixed running script outside of sportscameraoverlay dir
 #
 ###############################################################################
 
@@ -29,7 +30,7 @@ use SCPP::Common;
 
 BEGIN {
     require Exporter;
-    our $VERSION = 2.03;
+    our $VERSION = 2.04;
     our @ISA = qw(Exporter);
     our @EXPORT = qw(recordTourGE);
     our @EXPORT_OK = qw();
@@ -37,16 +38,17 @@ BEGIN {
 
 #Contatants that are local to this module and have to shouldn't change
 my $display = 97; #Display # to use for the recording
-my $capture_codec = 'libx264';
+my $capture_codec = 'mpeg4';
 my $capture_quality = 'lossless_ultrafast';
 my $log_file = "RecordGE.log";
-my $ge_bin = '/usr/bin/google-earth';
+#my $ge_bin = '/usr/bin/google-earth';
+my $ge_bin = $ENV{"HOME"} . '/google-earth/googleearth';
 my @xvfb_res = (1200, 900);
 my @ge_sidebar_point = (30,160);
-my @ge_sidebar_tour_point = (65,330);
+my @ge_sidebar_tour_point = (65,355);
 my @ge_exit_point = (510,470);
 my $ge_sidebar_colour = 13947080;
-my $ge_conf_file = './SCPP/GoogleEarthPlus.conf';
+my $ge_conf_file = "$program_dir/SCPP/GoogleEarthPlus.conf";
 my $ge_conf_file_loc = $ENV{"HOME"} . '/.config/Google/';
 my $screenshot_count = 0; #Used to keep track of the screenshots taken (mostly for debug)
 my $process_name = "Recording Track in Google Earth";
@@ -205,7 +207,7 @@ sub quitAll($){
             print "Xvfb PID to Kill: $1\n" if($debug > 2);
             unshift @xvfb_pids, $1;
         }
-        if($line =~ /^\w+\s+(\d+)\s.+google-earth/){
+        if($line =~ /^\w+\s+(\d+)\s.+$ge_bin/){
             print "GE PID to Kill: $1\n" if($debug > 2);
             unshift @ge_pids, $1;
         }
@@ -226,7 +228,7 @@ sub quitAll($){
     kill(15, @xvfb_pids);
 
     #wait for threads to exit cleanly
-    usleep(100 * 1000); #100ms
+    sleep(1); #1000ms
     progress($process_name_end, 80) if(!$sig_name);
 
     #Join all threads and try to get the exit codes 
@@ -254,7 +256,7 @@ sub run_xvfb(){
     if($xvfb_cntrl == 1){ #if set to anything else exit...
         print "Starting Virtual Display\n" if($debug);
         my @xvfb_cmd = ('startx', '--', '/usr/bin/Xvfb', ":$display", '-screen', '0', "$xvfb_res[0]x$xvfb_res[1]x24");
-        system("./SCPP/run_command.pl $debug \'$tmp_dir/$log_file\' @xvfb_cmd");
+        system("$program_dir/SCPP/run_command.pl $debug \'$tmp_dir/$log_file\' @xvfb_cmd");
         print "Finished XVFB cmd, Exited with $?\n" if($debug > 1);
     }
     $xvfb_status = 2;
@@ -279,8 +281,11 @@ sub run_ge($){
             print "Coping over the GE conf file: $ge_conf_file to $ge_conf_file_loc\n" if($debug > 1);
             `mkdir -p $ge_conf_file_loc`;
             copy($ge_conf_file, $ge_conf_file_loc) or die $!;
-        }            
-        system("./SCPP/run_command.pl $debug \'$tmp_dir/$log_file\' DISPLAY=:$display $ge_bin $kml_file");
+        }
+        #Remove any saved KML tours:
+        unlink "$ge_conf_file_loc/CommonSettings.conf";
+        unlink glob $ENV{"HOME"} . "/.googleearth/myplaces*";
+        system("$program_dir/SCPP/run_command.pl $debug \'$tmp_dir/$log_file\' DISPLAY=:$display $ge_bin \'\"$kml_file\"\'");
         print "Google Earth finished, Exited with: $?\n" if($debug > 1);
     }
     $ge_status = 2;
@@ -308,16 +313,21 @@ sub recordControl($$$){
     $capture_res[0]++ if(($capture_res[0] / 2) =~ /\./ );
     $capture_res[1]++ if(($capture_res[1] / 2) =~ /\./ );
 
+    #If there is a ffmpeg binary in the CWD then use that
+    my $ffmpeg_cmd = "ffmpeg";
+    #$ffmpeg_cmd = "$program_dir/ffmpeg" if(-f "$program_dir/ffmpeg"); #static ffmpeg doesn't support x11 grab:(
+
     #Record Command
     my $ffmpeg_inp_var = ':' . $display . '.0+' . $capture_offset[0] . ',' . $capture_offset[1];
-    my @record_cmd = ('/usr/bin/ffmpeg', '-y', '-t', "$length", '-f', 'x11grab', '-s', "$capture_res[0]x$capture_res[1]", '-r', "$framerate", '-i', "$ffmpeg_inp_var", '-vcodec', "$capture_codec", '-vpre', "$capture_quality",  "$out_file",);
+    #my @record_cmd = ("$ffmpeg_cmd", '-y', '-t', "$length", '-f', 'x11grab', '-s', "$capture_res[0]x$capture_res[1]", '-r', "$framerate", '-i', "$ffmpeg_inp_var", '-vcodec', "$capture_codec", '-vpre', "$capture_quality",  "$out_file",); Dam avconv version of ffmpeg doesnt support presets ffs!!
+    my @record_cmd = ("$ffmpeg_cmd", '-y', '-t', "$length", '-f', 'x11grab', '-s', "$capture_res[0]x$capture_res[1]", '-r', "$framerate", '-i', "$ffmpeg_inp_var", '-sameq', '-vcodec', "$capture_codec", "$out_file",);
     
     while($record_cntrl == 0){
         usleep(50 * 1000)#50ms
     }
     if($record_cntrl == 1){ #if set to anything else exit...
         print "Starting Recording\n" if($debug);
-        system("./SCPP/run_command.pl $debug \'$tmp_dir/$log_file\' @record_cmd");
+        system("$program_dir/SCPP/run_command.pl $debug \'$tmp_dir/$log_file\' @record_cmd");
         print "Finished Recording, Exited with $?\n" if($debug > 1); 
     }
     $record_status = 2;

@@ -10,6 +10,7 @@
 # 1.03  PJ 20/06/13 Fixed bugs with positioning of track
 # 1.04  PJ 02/09/13 Added ability to rotate the input video
 # 2.00  PJ 27/01/14 Using ffmpeg exclusively now (no more melt)
+# 2.01  PJ 26/04/14 Fixed running script outside of sportscameraoverlay dir
 #
 ###############################################################################
 
@@ -25,7 +26,7 @@ use SCPP::Common;
 
 BEGIN {
     require Exporter;
-    our $VERSION = 2.00;
+    our $VERSION = 2.01;
     our @ISA = qw(Exporter);
     our @EXPORT = qw(createVideo);
     our @EXPORT_OK = qw();
@@ -59,7 +60,7 @@ sub createVideo($$$$$$$$){
     
     #If there is a ffmpeg binary in the CWD then use that
     my $ffmpeg_cmd = "ffmpeg";
-    $ffmpeg_cmd = "./ffmpeg" if(-f "./ffmpeg");
+    $ffmpeg_cmd = "$program_dir/ffmpeg" if(-f "$program_dir/ffmpeg");
     
     #If we want to rotate the video do so:
     my $vid_in_rot_filter = '';
@@ -68,13 +69,13 @@ sub createVideo($$$$$$$$){
     #If we are overlaying the track:
     my $track_overlay_filter = '';
     my $track_vid = '';
-    $track_overlay_filter = "[ov1]; [ov1][2:v] overlay=0:0:shortest=$shortest" if($insert_track);
+    $track_overlay_filter = "[ov1]; [ov1][2:v] overlay=$track_pos[0]:$track_pos[1]:shortest=$shortest" if($insert_track);
     $track_vid = "-i $track_vid_file" if($insert_track);
 
     #Preconstruct the filter_complex arguments:
     my $filters = "[0:v]" . $vid_in_rot_filter . "[1:v] overlay=0:0:shortest=$shortest" . $track_overlay_filter . " [out]";
 
-    my $command = "$ffmpeg_cmd -progress $ffmpeg_out_tmp -loglevel fatal -hide_banner -y -i \'$vid_in_file\' -r $overlay_fps -i $tmp_dir/contour_img-%d.png $track_vid -filter_complex \'$filters\' -map \"[out]\" -vcodec $vid_out_codec -r $vid_out_framerate $vid_out_file";
+    my $command = "$ffmpeg_cmd -progress $ffmpeg_out_tmp -loglevel fatal -hide_banner -y -i \'$vid_in_file\' -r $overlay_fps -i $tmp_dir/contour_img-%d.png $track_vid -filter_complex \'$filters\' -map \"[out]\" -vcodec $vid_out_codec -r $vid_out_framerate \'$vid_out_file\'";
 
     print "FFmpeg Command:\n$command\n" if($debug);
 

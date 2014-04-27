@@ -9,6 +9,7 @@
 # 1.02  PJ 09/06/13 Added start delay
 # 1.03  PJ 19/07/13 Added skiruns and chairlifts to KML from a OSM file
 # 1.04  PJ 15/04/14 Fixed GPS period bug
+# 1.05  PJ 26/04/14 Fixed running script outside of sportscameraoverlay dir
 #
 ###############################################################################
 
@@ -22,7 +23,7 @@ use SCPP::Common;
 
 BEGIN {
     require Exporter;
-    our $VERSION = 1.04;
+    our $VERSION = 1.05;
     our @ISA = qw(Exporter);
     our @EXPORT = qw(genKML);
     our @EXPORT_OK = qw();
@@ -46,42 +47,46 @@ sub genKML($$$$){
     print "$process_name...\n" if($debug);
     progress($process_name, 0);
 
-        #We actuatly want the GPS period in seconds not milliseconds
-        $GPS_period = ($GPS_period / 1000);
+    #Get path for tack marker
+    $kml_position_marker = "$program_dir/$kml_position_marker";
+    $kml_position_marker = File::Spec->rel2abs($kml_position_marker) or die "Failed to convert $kml_position_marker to a absolute path";
 
-	#Print the static header info
-	my $xml = XML::LibXML::Document->new('1.0', 'utf-8');
-	my $kml = $xml->createElement("kml");
-	$kml->setAttribute('xmlns'=> 'http://www.opengis.net/kml/2.2');
-	$kml->setAttribute('xmlns:gx'=> 'http://www.google.com/kml/ext/2.2');
+    #We actuatly want the GPS period in seconds not milliseconds
+    $GPS_period = ($GPS_period / 1000);
 
-	#Print the static document header
-	my $document = $xml->createElement("Document");
-	$kml->appendChild($document);
-	my $open_tag = $xml->createElement("open");
-	$open_tag->appendTextNode(1);
-	$document->appendChild($open_tag);
+    #Print the static header info
+    my $xml = XML::LibXML::Document->new('1.0', 'utf-8');
+    my $kml = $xml->createElement("kml");
+    $kml->setAttribute('xmlns'=> 'http://www.opengis.net/kml/2.2');
+    $kml->setAttribute('xmlns:gx'=> 'http://www.google.com/kml/ext/2.2');
 
-	#Now define the line style(s)
-	foreach my $line_style (keys %kml_line_styles){
-		my $style = $xml->createElement("Style");
-		$style->setAttribute("id"=> "$line_style");
-		$document->appendChild($style);
-		my $linestyle_tag = $xml->createElement("LineStyle");
-		$style->appendChild($linestyle_tag);
-		#print colour
-		my $color = $xml->createElement("color");
-		$color->appendTextNode($kml_line_styles{$line_style}{'color'});
-		$linestyle_tag->appendChild($color);
-		#print width
-		my $width = $xml->createElement("width");
+    #Print the static document header
+    my $document = $xml->createElement("Document");
+    $kml->appendChild($document);
+    my $open_tag = $xml->createElement("open");
+    $open_tag->appendTextNode(1);
+    $document->appendChild($open_tag);
+
+    #Now define the line style(s)
+    foreach my $line_style (keys %kml_line_styles){
+        my $style = $xml->createElement("Style");
+        $style->setAttribute("id"=> "$line_style");
+        $document->appendChild($style);
+        my $linestyle_tag = $xml->createElement("LineStyle");
+        $style->appendChild($linestyle_tag);
+        #print colour
+        my $color = $xml->createElement("color");
+        $color->appendTextNode($kml_line_styles{$line_style}{'color'});
+        $linestyle_tag->appendChild($color);
+        #print width
+        my $width = $xml->createElement("width");
         $width->appendTextNode($kml_line_styles{$line_style}{'width'});
         $linestyle_tag->appendChild($width);
         #print gx:labelVisibility
         my $gx_labelVisibility = $xml->createElement("gx:labelVisibility");
         $gx_labelVisibility->appendTextNode($kml_line_styles{$line_style}{'labelVisibility'});
         $linestyle_tag->appendChild($gx_labelVisibility);
-	}
+    }
 
     #Current position Icon
     my $style_pos = $xml->createElement("Style");
@@ -116,42 +121,42 @@ sub genKML($$$$){
     my $coordinates_start = $xml->createElement("coordinates");
     $point_start->appendChild($coordinates_start);
 
-	#Now print the track (Placemark)
-	my $placemark = $xml->createElement("Placemark");
-	$document->appendChild($placemark);
-	my $track_name = $xml->createElement("name");
-	$track_name->appendTextNode($project_name . '-Track');
-	$placemark->appendChild($track_name);
-	my $styleurl = $xml->createElement("styleUrl");
-	$styleurl->appendTextNode($kml_track_style);
-	$placemark->appendChild($styleurl);
-	my $linestring = $xml->createElement("LineString");
-	$placemark->appendChild($linestring);
+    #Now print the track (Placemark)
+    my $placemark = $xml->createElement("Placemark");
+    $document->appendChild($placemark);
+    my $track_name = $xml->createElement("name");
+    $track_name->appendTextNode($project_name . '-Track');
+    $placemark->appendChild($track_name);
+    my $styleurl = $xml->createElement("styleUrl");
+    $styleurl->appendTextNode($kml_track_style);
+    $placemark->appendChild($styleurl);
+    my $linestring = $xml->createElement("LineString");
+    $placemark->appendChild($linestring);
     my $tessellate = $xml->createElement("tessellate");
     $tessellate->appendTextNode('1');
     $linestring->appendChild($tessellate);
 
     #Now Print the Tour elements
-	my $gx_tour = $xml->createElement("gx:Tour");
-	$document->appendChild($gx_tour);
-	my $name = $xml->createElement("name");
-	$name->appendTextNode($project_name);
-	$gx_tour->appendChild($name);
-	my $gx_playlist = $xml->createElement("gx:Playlist");
-	$gx_tour->appendChild($gx_playlist);
+    my $gx_tour = $xml->createElement("gx:Tour");
+    $document->appendChild($gx_tour);
+    my $name = $xml->createElement("name");
+    $name->appendTextNode($project_name);
+    $gx_tour->appendChild($name);
+    my $gx_playlist = $xml->createElement("gx:Playlist");
+    $gx_tour->appendChild($gx_playlist);
 
-	#Fill in the coordinates for the track and the tour created above
-	my $coordinates = $xml->createElement("coordinates");
-	$linestring->appendChild($coordinates);
+    #Fill in the coordinates for the track and the tour created above
+    my $coordinates = $xml->createElement("coordinates");
+    $linestring->appendChild($coordinates);
     my $last_direction = 0; #Only used if direction smoothing is off
-	foreach my $GPSline (sort {$a <=> $b} keys %{$GPS_data_ref}){
+    foreach my $GPSline (sort {$a <=> $b} keys %{$GPS_data_ref}){
         print "Printing KML for line: $GPSline\n" if($debug > 2); 
         #print out track
         #my $lat = latConv($GPSline, $GPS_data_ref);
-		my $lat = ${$GPS_data_ref}{ $GPSline }{'decimal_lat'};
+        my $lat = ${$GPS_data_ref}{ $GPSline }{'decimal_lat'};
         #my $long = longConv($GPSline, $GPS_data_ref);
-		my $long = ${$GPS_data_ref}{ $GPSline }{'decimal_long'};
-		$coordinates->appendTextNode("$long,$lat,0\n");
+        my $long = ${$GPS_data_ref}{ $GPSline }{'decimal_long'};
+        $coordinates->appendTextNode("$long,$lat,0\n");
 
         #Create flyto elements
         my $gx_flyto =  $xml->createElement("gx:FlyTo");
@@ -231,8 +236,8 @@ sub genKML($$$$){
             my $coordinates_new = $xml->createElement("coordinates");
             $coordinates_new->appendTextNode("$long,$lat,0");
             $new_pos->appendChild($coordinates_new);
-       }
-	}
+        }
+    }
 
     #If we have a map file lets parse it and add the tracks
     if($map_file){
@@ -291,11 +296,11 @@ sub genKML($$$$){
         }
     }
 
-	$xml->setDocumentElement($kml);
-	print "Writing KML to $kml_file\n" if($debug);
-	open KML, '>', $kml_file or die $!;
-	print KML $xml->toString($xml_format);
-	close KML or die $!;
+    $xml->setDocumentElement($kml);
+    print "Writing KML to $kml_file\n" if($debug);
+    open KML, '>', $kml_file or die $!;
+    print KML $xml->toString($xml_format);
+    close KML or die $!;
 
     progress($process_name, 100);
 }

@@ -30,6 +30,16 @@ To install on a debian like OS run the following:
  sudo apt-get install perl libgd-gd2-perl libxml-libxml-perl
 2)Download SportsCameraOverlay and untar
  tar -xvzf sportscameraoverlay.tar.gz
+
+If you want the (highly unstable) google earth track recording you will also need to following packages:
+*Xvfb
+*xdotool
+*google earth < 7 (I'm using 6.0.3)
+*The ubuntu version of ffmpeg
+eg:
+ sudo apt-get install xvfb xdotool ffmpeg
+ Then install the google earth binary:
+ ./GoogleEarthLinux.bin
  
 USAGE
 ##################################################

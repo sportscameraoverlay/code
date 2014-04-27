@@ -14,6 +14,8 @@
 # 1.07  PJ 26/01/14 Modified the timeToEpoch subroutine to cope with subsecond intervals with more than 2 decimal places
 # 1.08  PJ 27/01/14 Modified createSubs subroutine to cater for video files without GPS info. Also bug fixes.
 # 1.09  PJ 15/04/14 Fixed rounding bug relating to gps period/epoch time. Now time is in ms
+# 1.10  PJ 26/04/14 Fixed running script outside of sportscameraoverlay dir
+# 1.11  PJ 26/04/14 Fixed issue where GPS period of 0 will kill process
 #
 ###############################################################################
 
@@ -27,7 +29,7 @@ use SCPP::Config qw(:debug :tmp :video :directionsmooth $earths_radius);
 
 BEGIN {
     require Exporter;
-    our $VERSION = 1.09;
+    our $VERSION = 1.10;
     our @ISA = qw(Exporter);
     our @EXPORT = qw(createSubs readGPSfile checkGPSData GPSPointsCalc);
     our @EXPORT_OK = qw();
@@ -67,7 +69,7 @@ sub createSubs($$){
 
     #If there is a ffmpeg binary in the CWD then use that
     my $ffmpeg_cmd = "ffmpeg";
-    $ffmpeg_cmd = "./ffmpeg" if(-f "./ffmpeg");
+    $ffmpeg_cmd = "$program_dir/ffmpeg" if(-f "$program_dir/ffmpeg");
 
     my $cmd = "$ffmpeg_cmd -loglevel info -i \'$video_file\' -vn -an -scodec copy -f rawvideo $subs_file 2>&1";
     print "SYS_CMD: $cmd\n" if($debug > 1);
@@ -239,7 +241,7 @@ sub readGPSfile($$){
                         $GPS_period = $second_date[1] - $first_date[1];
                         print "GPS_period: $GPS_period\n" if($debug > 2);
                         my $GPS_period_check = $third_date[1] - $second_date[1];
-                        if(($second_date[0] - $first_date[0] != 1) or ($third_date[0] - $second_date[0] != 1) or ($GPS_period != $GPS_period_check)){
+                        if(($second_date[0] - $first_date[0] != 1) or ($third_date[0] - $second_date[0] != 1) or ($GPS_period != $GPS_period_check) or ($GPS_period <= 0)){
                             undef @first_date;
                             undef @second_date;
                             undef @third_date;

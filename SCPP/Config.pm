@@ -14,9 +14,9 @@ BEGIN {
     our $VERSION = 1.01;
     our @ISA = qw(Exporter);
     our @EXPORT = qw();
-    our @EXPORT_OK = qw($debug $print_err $save_subs @capture_res $ge_load_time $ge_first_point_wait $screen_stabilise_wait $screenshot_time $debug_lvl_for_screenshot $stabilize_video $shakiness $dir_look_ahead $dir_look_behind $dir_min_dist $smooth_direction $num_rolling_avg_pts $overlay_type $images_per_sec $base_image_transparency $ge_path_vid @overlay_pos @track_pos @track_frame_colour $track_frame_thickness $overlay_size $base_image_file @green @white @blue @black @red $font_normal $font_narrow $vid_out_framerate $vid_length_tol_plus $vid_length_tol_minus $input_vid_rotation $stop_at_shortest $vid_out_codec $vid_out_quality $audio_out_codec $audio_out_bitrate $tmp_dir $subs_file_name $SCPP_dir setOverlayValues $map_file %kml_line_styles $kml_track_style $kml_flymode $kml_altitude $kml_tilt $kml_range $kml_altmode $kml_position_marker $kml_pos_marker_scale $xml_format $min_kml_path_dist $earths_radius $ffmpeg_64bit_url $ffmpeg_32bit_url);
+    our @EXPORT_OK = qw($debug $program_dir $print_err $save_subs @capture_res $ge_load_time $ge_first_point_wait $screen_stabilise_wait $screenshot_time $debug_lvl_for_screenshot $stabilize_video $shakiness $dir_look_ahead $dir_look_behind $dir_min_dist $smooth_direction $num_rolling_avg_pts $overlay_type $images_per_sec $base_image_transparency $ge_path_vid @overlay_pos @track_pos @track_frame_colour $track_frame_thickness $overlay_size $base_image_file @green @white @blue @black @red $font_normal $font_narrow $vid_out_framerate $vid_length_tol_plus $vid_length_tol_minus $input_vid_rotation $stop_at_shortest $vid_out_codec $vid_out_quality $audio_out_codec $audio_out_bitrate $tmp_dir $subs_file_name setOverlayValues $map_file %kml_line_styles $kml_track_style $kml_flymode $kml_altitude $kml_tilt $kml_range $kml_altmode $kml_position_marker $kml_pos_marker_scale $xml_format $min_kml_path_dist $earths_radius $ffmpeg_64bit_url $ffmpeg_32bit_url);
     our %EXPORT_TAGS =(
-        debug => [qw($debug $print_err $save_subs)],
+        debug => [qw($debug $print_err $save_subs $program_dir)],
         gerecord => [qw(@capture_res $ge_load_time $ge_first_point_wait $screen_stabilise_wait $screenshot_time $debug_lvl_for_screenshot)],
         imgstab => [qw($stabilize_video $shakiness)],
         directionsmooth => [qw($dir_look_ahead $dir_look_behind $dir_min_dist $smooth_direction $num_rolling_avg_pts)],
@@ -24,7 +24,7 @@ BEGIN {
         overlaysub => [qw($base_image_file @green @white @blue @black @red $font_normal $font_narrow)],
         video => [qw($vid_out_framerate $vid_length_tol_plus $vid_length_tol_minus $base_image_transparency $ge_path_vid @track_pos $input_vid_rotation $stop_at_shortest)],
         vidoutset => [qw($vid_out_codec $vid_out_quality $audio_out_codec $audio_out_bitrate)],
-        tmp => [qw($tmp_dir $subs_file_name $SCPP_dir)],
+        tmp => [qw($tmp_dir $subs_file_name)],
         kml => [qw($map_file $ge_first_point_wait $smooth_direction %kml_line_styles $kml_track_style $kml_flymode $kml_altitude $kml_tilt $kml_range $kml_altmode $kml_position_marker $kml_pos_marker_scale $xml_format $min_kml_path_dist $earths_radius)],
     );
 }
@@ -36,12 +36,14 @@ our $debug = 0; #Leave set low, can be set higher later
 our $print_err = 1; #Whether or not to print errors to STDERR
 our $save_subs = 1;
 
+#Program Dir
+our $program_dir = '.'; #Needs to be initialised - set correctly later
+
 #Temp dirs
 our $tmp_dir = "/tmp/contour_auth_$$/";
 our $subs_file_name = "contour_auth_subs.log";
 
 our $earths_radius = 6378000; #in metres
-our $SCPP_dir;
 
 #FFMPEG download links
 our $ffmpeg_64bit_url = 'http://ffmpeg.gusari.org/static/64bit/ffmpeg.static.64bit.latest.tar.gz';
@@ -144,7 +146,6 @@ our $kml_tilt = "45";
 our $kml_range = "500";
 our $kml_altmode = "relativeToGround";
 our $kml_position_marker = "Images/pin-green.png";
-$kml_position_marker = File::Spec->rel2abs($kml_position_marker) or die "Failed to convert $kml_position_marker to a absolute path";
 our $kml_pos_marker_scale = "1";
 our $xml_format = 2; #Sets how the xml is printed...
 our $min_kml_path_dist = 10; #Min distance between points in paths imported from OSM before interpolation will occur
@@ -189,7 +190,7 @@ sub setOverlayValues(){
         @overlay_pos = (0, 100); #X,Y percentage position
         $overlay_size = 60;
         $base_image_file = 'Images/board-frosty.png';
-        @track_pos = (1510, 710, 1918, 1078);
+        @track_pos = (1000, 500, 1918, 1078);
     }
     elsif($overlay_type =~ /speedo/) {
         $images_per_sec = 10;
@@ -197,7 +198,7 @@ sub setOverlayValues(){
         @overlay_pos = (0, 100); #X,Y percentage position
         $overlay_size = 70;
         $base_image_file = 'Images/speedo.png';
-        @track_pos = (1550, 750, 1918, 1078);
+        @track_pos = (1000, 500, 1918, 1078);
     }
 
     else{
@@ -206,7 +207,7 @@ sub setOverlayValues(){
     }
  
     #Convert base image file to an absolute path
-    $base_image_file = "$SCPP_dir/$base_image_file";
+    $base_image_file = "$program_dir/$base_image_file";
 
     return 1;
 }

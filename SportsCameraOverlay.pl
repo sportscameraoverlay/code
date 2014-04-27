@@ -36,16 +36,19 @@
 # 2.6  PJ 27/01/14 Added option to use an external GPS file (-f option)
 # 2.7  PJ 28/01/14 Removed the requirement for melt
 # 2.8  PJ 15/04/14 Few small bugfixes, Also downloading ffmpeg if it doesn't exist
+# 2.9  PJ 26/04/14 Fixed running script outside of sportscameraoverlay dir
 #
 ###############################################################################
 
 use strict;
 use warnings;
 use File::Basename;
+#use Cwd 'abs_path';
 use Getopt::Long;
 use File::Find;
 use File::Spec;
-use lib './SCPP';
+use FindBin;
+use lib "$FindBin::RealBin";
 use SCPP::KmlGen;
 use SCPP::CreateVideo;
 use SCPP::GoogleEarthRecord;
@@ -60,7 +63,6 @@ sub run($);
 ###############################################################################
 #Read in command line arguments
 ###############################################################################
-check_env();
 
 Getopt::Long::Configure ("bundling");
 
@@ -74,20 +76,22 @@ GetOptions ('v+' => \$debug, 'o=s' => \$overlay_type, 'k' => \$create_kml_only, 
 die "You must specify an input video file or directory\n" if($#ARGV != 0);
 die "Options -K and -k cannot be used together RTFM!\n" if($create_kml_only and $no_kml); 
 
-#First set the CWD
-$SCPP_dir = File::Spec->rel2abs(".") or die "Failed to convert CWD to a absolute path";
-print "CWD: $SCPP_dir\n" if($debug > 1);
+#Get the cwd, then chdir to the dir that this program is in
+#my $cwd = abs_path() or die "Failed to get CWD: $!";
+$program_dir = dirname(__FILE__) or die "Failed to get dir name of $0: $!";
+#chdir $program_dir or die "Failed to cd to $program_dir: $!"; 
+print "Program Dir: $program_dir\n" if($debug > 1);
+
+check_env();
 
 #Lets setup presets for the overlay type
 setOverlayValues();
 
 #Set the external GPS file to an absolute path
-$external_gps_file = File::Spec->rel2abs($external_gps_file) or die "Failed to convert 
-$external_gps_file to a absolute path" if($external_gps_file);
+$external_gps_file = File::Spec->rel2abs($external_gps_file) or die "Failed to convert $external_gps_file to a absolute path" if($external_gps_file);
 
 #Set the map file to an absolute path
-$map_file = File::Spec->rel2abs($map_file) or die "Failed to convert 
-$map_file to a absolute path" if($map_file);
+$map_file = File::Spec->rel2abs($map_file) or die "Failed to convert $map_file to a absolute path" if($map_file);
 
 ###############################################################################
 #Either process all files in the directory or just a single file.
@@ -167,7 +171,7 @@ sub run($){
     #Create a name for this conversion (based on input filename) override in future?
     my $file_name = $video_file;
     $file_name =~ s/\.(\w\w\w\w?)$//;
-    $file_name =~ tr/\$#@~!&*()[];:?^ `\\//d; #Tidy up the file name
+    #$file_name =~ tr/\$#@~!&*()[];:?^`\\//d; #Tidy up the file name
     my $project_name = fileparse($file_name);
 
     #Set the video out file based on the input file
