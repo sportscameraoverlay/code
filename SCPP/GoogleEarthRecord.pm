@@ -40,13 +40,13 @@ BEGIN {
 my $display = 97; #Display # to use for the recording
 my $capture_codec = 'mpeg4';
 my $capture_quality = 'lossless_ultrafast';
-my $log_file = "RecordGE.log";
+my $log_file = "$tmp_dir/RecordGE.log";
 #my $ge_bin = '/usr/bin/google-earth';
 my $ge_bin = $ENV{"HOME"} . '/google-earth/googleearth';
 my @xvfb_res = (1200, 900);
 my @ge_sidebar_point = (30,160);
-my @ge_sidebar_tour_point = (65,355);
-my @ge_exit_point = (510,470);
+my @ge_sidebar_tour_point = (65,379);
+my @ge_exit_point = (510,363);
 my $ge_sidebar_colour = 13947080;
 my $ge_conf_file = "$program_dir/SCPP/GoogleEarthPlus.conf";
 my $ge_conf_file_loc = $ENV{"HOME"} . '/.config/Google/';
@@ -239,6 +239,9 @@ sub quitAll($){
         print "Thread $thread_map{$thread} exited with status: $thread_exit_status\n" if($debug > 1);
     }
 
+    #Get rid of the log file if all exited cleanly and debug is off
+    unlink $log_file unless($sig_name or $debug); 
+
     die "RecordGE module exiting now...\n" if($sig_name);
     progress($process_name_end, 100) if(!$sig_name);
     return 1;
@@ -256,7 +259,7 @@ sub run_xvfb(){
     if($xvfb_cntrl == 1){ #if set to anything else exit...
         print "Starting Virtual Display\n" if($debug);
         my @xvfb_cmd = ('startx', '--', '/usr/bin/Xvfb', ":$display", '-screen', '0', "$xvfb_res[0]x$xvfb_res[1]x24");
-        system("$program_dir/SCPP/run_command.pl $debug \'$tmp_dir/$log_file\' @xvfb_cmd");
+        system("$program_dir/SCPP/run_command.pl $debug \'$log_file\' @xvfb_cmd");
         print "Finished XVFB cmd, Exited with $?\n" if($debug > 1);
     }
     $xvfb_status = 2;
@@ -285,7 +288,7 @@ sub run_ge($){
         #Remove any saved KML tours:
         unlink "$ge_conf_file_loc/CommonSettings.conf";
         unlink glob $ENV{"HOME"} . "/.googleearth/myplaces*";
-        system("$program_dir/SCPP/run_command.pl $debug \'$tmp_dir/$log_file\' DISPLAY=:$display $ge_bin \'\"$kml_file\"\'");
+        system("$program_dir/SCPP/run_command.pl $debug \'$log_file\' DISPLAY=:$display $ge_bin \'\"$kml_file\"\'");
         print "Google Earth finished, Exited with: $?\n" if($debug > 1);
     }
     $ge_status = 2;
@@ -327,7 +330,7 @@ sub recordControl($$$){
     }
     if($record_cntrl == 1){ #if set to anything else exit...
         print "Starting Recording\n" if($debug);
-        system("$program_dir/SCPP/run_command.pl $debug \'$tmp_dir/$log_file\' @record_cmd");
+        system("$program_dir/SCPP/run_command.pl $debug \'$log_file\' @record_cmd");
         print "Finished Recording, Exited with $?\n" if($debug > 1); 
     }
     $record_status = 2;

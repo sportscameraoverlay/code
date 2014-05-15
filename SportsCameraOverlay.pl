@@ -113,7 +113,7 @@ if($batch_mode){
     find( \&wanted, $directory, no_chdir=>1);
 
     #Cleanup
-    rmdir $tmp_dir_root or die "Failed to remove $tmp_dir_root: $!\n";
+    rmdir $tmp_dir_root or die "Failed to remove $tmp_dir_root: $!\n" unless($debug);
     exit 0;
 
     sub wanted{
@@ -124,10 +124,6 @@ if($batch_mode){
             $tmp_dir = "$tmp_dir_root/$file/"; #Make a new tmp_dir for each new file
             $ge_path_vid = "$tmp_dir_root/$file/$ge_path_vid_orig";
             run($absfile);
-    
-            #Now clean up the tmp dir
-            unlink glob "$tmp_dir/*.png" or warn "Failed to remove all image files $!" if(!$create_kml_only);
-            rmdir $tmp_dir or die "Failed to remove $tmp_dir: $!";
 
             return 1;
         }else{
@@ -142,10 +138,6 @@ else{
     $ge_path_vid = "$tmp_dir/$ge_path_vid";
     run($absfile);
     
-    #Now clean up the tmp dir
-    unlink glob "$tmp_dir/*.png" or warn "Failed to remove all image files $!" if(!$create_kml_only);
-    rmdir $tmp_dir or die "Failed to remove $tmp_dir: $!\n";
-
     exit 0;
 }
 
@@ -225,7 +217,7 @@ sub run($){
     genKML(\%GPS_data, $kml_file, $project_name, $GPS_period) unless($no_kml);
 
     #If there are no errors in the subtitles remove the tmp file
-    unlink($subs_file) or die $! if(!$subs_file_err);
+    unlink($subs_file) or die $! unless($subs_file_err or $debug);
 
     #Exit now if we only want the KML file
     if($create_kml_only){
@@ -244,6 +236,11 @@ sub run($){
     $length = $subtitle_length if($video_length > $subtitle_length);
     my $approx_frames = $length * $vid_out_framerate;
     createVideo($video_file,$stop_at_shortest,$vid_out_file,$images_per_sec,$insert_track,$ge_path_vid,$input_vid_rotation, $approx_frames);
+
+    #Now clean up the tmp dir
+    unlink glob "$tmp_dir/*.png" or warn "Failed to remove all image files $!" unless($create_kml_only);
+    unlink $ge_path_vid or warn "Failed to remove temp track video $!" if($insert_track and !$debug);
+    rmdir $tmp_dir or die "Failed to remove $tmp_dir: $!\n" unless($debug);
 
     return 1;
 }

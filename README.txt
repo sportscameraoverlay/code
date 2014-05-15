@@ -35,7 +35,7 @@ If you want the (highly unstable) google earth track recording you will also nee
 *Xvfb
 *xdotool
 *google earth < 7 (I'm using 6.0.3)
-*The ubuntu version of ffmpeg
+*The ubuntu version of ffmpeg as well as the proper ffmpeg version
 eg:
  sudo apt-get install xvfb xdotool ffmpeg
  Then install the google earth binary:
