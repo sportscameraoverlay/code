@@ -11,6 +11,7 @@
 # 1.04  PJ 02/09/13 Added ability to rotate the input video
 # 2.00  PJ 27/01/14 Using ffmpeg exclusively now (no more melt)
 # 2.01  PJ 26/04/14 Fixed running script outside of sportscameraoverlay dir
+# 2.02  PJ 19/01/15 Changed ffmpeg loglevel to error
 #
 ###############################################################################
 
@@ -26,7 +27,7 @@ use SCPP::Common;
 
 BEGIN {
     require Exporter;
-    our $VERSION = 2.01;
+    our $VERSION = 2.02;
     our @ISA = qw(Exporter);
     our @EXPORT = qw(createVideo);
     our @EXPORT_OK = qw();
@@ -75,7 +76,7 @@ sub createVideo($$$$$$$$){
     #Preconstruct the filter_complex arguments:
     my $filters = "[0:v]" . $vid_in_rot_filter . "[1:v] overlay=0:0:shortest=$shortest" . $track_overlay_filter . " [out]";
 
-    my $command = "$ffmpeg_cmd -progress $ffmpeg_out_tmp -loglevel fatal -hide_banner -y -i \'$vid_in_file\' -r $overlay_fps -i $tmp_dir/contour_img-%d.png $track_vid -filter_complex \'$filters\' -map \"[out]\" -vcodec $vid_out_codec -r $vid_out_framerate \'$vid_out_file\'";
+    my $command = "$ffmpeg_cmd -progress $ffmpeg_out_tmp -loglevel error -hide_banner -y -i \'$vid_in_file\' -r $overlay_fps -i $tmp_dir/contour_img-%d.png $track_vid -filter_complex \'$filters\' -map \"[out]\" -vcodec $vid_out_codec -r $vid_out_framerate \'$vid_out_file\'";
 
     print "FFmpeg Command:\n$command\n" if($debug);
 

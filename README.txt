@@ -34,13 +34,16 @@ To install on a debian like OS run the following:
 If you want the (highly unstable) google earth track recording you will also need to following packages:
 *Xvfb
 *xdotool
-*google earth < 7 (I'm using 6.0.3)
-*The ubuntu version of ffmpeg as well as the proper ffmpeg version
+*A stable version of google earth. (I mean one that doesn't crash on your OS often) - For Linux mint the 32bit version appears to be better. You may also have more luck with verion 6.
+*avconv
+*imagemagick
 eg:
- sudo apt-get install xvfb xdotool ffmpeg
- Then install the google earth binary:
+ sudo apt-get install xvfb xdotool libav-tools imagemagick
+ Then install google earth: (note this was taken from forums.linuxmint.com/viewtopic.php?f=42&t=170508)
+ sudo dpkg --add-architecture i386 && sudo apt-get update && sudo apt-get install ia32-libs && sudo apt-get install googleearth-package && sudo apt-get install google-earth-stable:i386
+ or download Google Earth and run the installer manually:
  ./GoogleEarthLinux.bin
- 
+
 USAGE
 ##################################################
 To use this program run the SportsCameraOverlay.pl executable from a terminal as follows:

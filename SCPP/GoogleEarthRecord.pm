@@ -13,6 +13,9 @@
 # 2.02  PJ 20/06/13 changed geometry to use arrays.
 # 2.03  PJ 20/06/13 Fixed record res bug (must be divisable by 2).
 # 2.04  PJ 26/04/14 Fixed running script outside of sportscameraoverlay dir
+# 2.05  PJ 19/01/15 Using OS installed avconv for screen grab
+# 2.06  PJ 19/01/15 Smarter search for GE
+# 2.07  PJ 19/01/15 Fixed a few bugs with GE and the xdotool
 #
 ###############################################################################
 
@@ -30,24 +33,25 @@ use SCPP::Common;
 
 BEGIN {
     require Exporter;
-    our $VERSION = 2.04;
+    our $VERSION = 2.07;
     our @ISA = qw(Exporter);
     our @EXPORT = qw(recordTourGE);
     our @EXPORT_OK = qw();
 }
 
-#Contatants that are local to this module and have to shouldn't change
+#Constants that are local to this module and have to shouldn't change
 my $display = 97; #Display # to use for the recording
-my $capture_codec = 'mpeg4';
+my $capture_codec = 'libx264';
 my $capture_quality = 'lossless_ultrafast';
 my $log_file = "$tmp_dir/RecordGE.log";
-#my $ge_bin = '/usr/bin/google-earth';
-my $ge_bin = $ENV{"HOME"} . '/google-earth/googleearth';
 my @xvfb_res = (1200, 900);
-my @ge_sidebar_point = (30,160);
-my @ge_sidebar_tour_point = (65,379);
+my @ge_sidebar_point_v6 = (30,400); #update this by running in verbose mode and then opening the screenshot that is saved under /tmp with a point on the sidebar with the colour below... Note: this needs to be a point inside the "places" dialog.
+my @ge_sidebar_point_v7 = (30,390);
+my @ge_sidebar_point = @ge_sidebar_point_v6;
 my @ge_exit_point = (510,363);
-my $ge_sidebar_colour = 13947080;
+my $ge_sidebar_colour_v6 = 13947080; #Update this by running in verbose mode and looking for the "GE Sidebar Colour Index" or "GE Sidebar Colour Index after change" value
+my $ge_sidebar_colour_v7 = 16777215;
+my $ge_sidebar_colour = $ge_sidebar_colour_v6;
 my $ge_conf_file = "$program_dir/SCPP/GoogleEarthPlus.conf";
 my $ge_conf_file_loc = $ENV{"HOME"} . '/.config/Google/';
 my $screenshot_count = 0; #Used to keep track of the screenshots taken (mostly for debug)
@@ -55,6 +59,12 @@ my $process_name = "Recording Track in Google Earth";
 my $process_name_end = "Shutting down Google Earth and the Virtual Screen";
 my $process_name_start = "Starting Virtual Screen and Google Earth";
 my @capture_offset;
+
+my $ge_bin_v6 = 'googleearth';
+my $ge_bin_v6_home = $ENV{"HOME"} . '/google-earth/googleearth';
+my $ge_bin_v7 = 'google-earth';
+my $ge_bin = $ge_bin_v6; #Ensure this is set to something otherwise the kill thread will kill everything!
+
 
 #Shared Vars
 my $ge_status :shared = 0;
@@ -99,6 +109,23 @@ sub recordTourGE($$$$){
     $SIG{INT} = \&quitAll;
     $SIG{HUP} = \&quitAll;
     $SIG{TERM} = \&quitAll;
+
+    #Try to figure out what GE binary to use
+    #Prefer the old GE for now
+    if(system("which $ge_bin_v6 >/dev/null") == 0){
+        $ge_bin = $ge_bin_v6;
+        print "Using $ge_bin_v6 (Google Earth v6). Setting up for GEv6.\n" if($debug > 1);
+    }elsif(-x $ge_bin_v6_home){
+        $ge_bin = $ge_bin_v6_home;
+        print "Using $ge_bin_v6_home (Google Earth v6). Setting up for GEv6.\n" if($debug > 1);
+    }elsif(system("which $ge_bin_v7 >/dev/null") == 0){
+        $ge_bin = $ge_bin_v7;
+        $ge_sidebar_colour = $ge_sidebar_colour_v7;
+        @ge_sidebar_point = @ge_sidebar_point_v7;
+        print "Using $ge_bin_v7 (Google Earth v7). Setting up for GEv7.\n" if($debug > 1);
+    }else{
+        die "No Google earth binary found. Please install Google earth.\n Note: you may need to update the program to point to the GE binary...";
+    }
 
     #If debug level is above the specified level take screenshots
     my $take_screenshot = 0;
@@ -273,6 +300,7 @@ sub run_ge($){
     (my $kml_file) = @_;
     $ge_status = 1;
     print "Running Google Earth thread\n" if($debug > 1);
+
     while($ge_cntrl == 0){
         usleep(50 * 1000)#50ms
     }
@@ -315,15 +343,14 @@ sub recordControl($$$){
     #Also check if the capture res is divisable wholey by 2
     $capture_res[0]++ if(($capture_res[0] / 2) =~ /\./ );
     $capture_res[1]++ if(($capture_res[1] / 2) =~ /\./ );
-
-    #If there is a ffmpeg binary in the CWD then use that
-    my $ffmpeg_cmd = "ffmpeg";
-    #$ffmpeg_cmd = "$program_dir/ffmpeg" if(-f "$program_dir/ffmpeg"); #static ffmpeg doesn't support x11 grab:(
+    
+    #static ffmpeg doesn't support x11 grab:( - Have to use avconv
+    my $ffmpeg_cmd = "avconv";
 
     #Record Command
     my $ffmpeg_inp_var = ':' . $display . '.0+' . $capture_offset[0] . ',' . $capture_offset[1];
-    #my @record_cmd = ("$ffmpeg_cmd", '-y', '-t', "$length", '-f', 'x11grab', '-s', "$capture_res[0]x$capture_res[1]", '-r', "$framerate", '-i', "$ffmpeg_inp_var", '-vcodec', "$capture_codec", '-vpre', "$capture_quality",  "$out_file",); Dam avconv version of ffmpeg doesnt support presets ffs!!
-    my @record_cmd = ("$ffmpeg_cmd", '-y', '-t', "$length", '-f', 'x11grab', '-s', "$capture_res[0]x$capture_res[1]", '-r', "$framerate", '-i', "$ffmpeg_inp_var", '-sameq', '-vcodec', "$capture_codec", "$out_file",);
+    my @record_cmd = ("$ffmpeg_cmd", '-y', '-f', 'x11grab', '-r', "$framerate", '-s', "$capture_res[0]x$capture_res[1]", '-i', "$ffmpeg_inp_var", '-vcodec', "$capture_codec", '-pre', "$capture_quality", '-t', "$length",  "$out_file",); 
+    #my @record_cmd = ("$ffmpeg_cmd", '-y', '-t', "$length", '-f', 'x11grab', '-s', "$capture_res[0]x$capture_res[1]", '-r', "$framerate", '-i', "$ffmpeg_inp_var", '-vcodec', "$capture_codec", "$out_file",);
     
     while($record_cntrl == 0){
         usleep(50 * 1000)#50ms
@@ -408,13 +435,25 @@ sub control_ge($$){
         x11KeyPress($display,$window_id[0],'alt+ctrl+b');
     }
     wait_sec($screen_stabilise_wait); #wait for screen to stabilise
-    takeScreenshot("GE_sidebar_open") if($take_screenshot);
+    if($take_screenshot){
+        my $ge_screenshot_file2 = takeScreenshot("GE_sidebar_open");
+        my $screenshot2 = GD::Image->newFromPng($ge_screenshot_file2, 1);
+        my $index2 = $screenshot2->getPixel(@ge_sidebar_point);
+        print "GE Sidebar Colour Index after change: $index2\n" if($debug > 1);
+    }    
     progress($process_name_start, 80);
     
     #Play Tour
     #Note: For this to work the gx:Tour element must be first in the KML file
-    x11PointClick($display,$window_id[0],$ge_sidebar_tour_point[0],$ge_sidebar_tour_point[1]);
-    #x11KeyPress($display,$window_id[0],'Down');
+    #x11PointClick($display,$window_id[0],$ge_sidebar_tour_point[0],$ge_sidebar_tour_point[1]);
+    x11PointClick($display,$window_id[0],$ge_sidebar_point[0],$ge_sidebar_point[1]);
+    wait_sec(0.1);
+    x11KeyPress($display,$window_id[0],'Down');
+    wait_sec(0.1);
+    x11KeyPress($display,$window_id[0],'Down');
+    wait_sec(0.1);
+    x11KeyPress($display,$window_id[0],'Down');
+    wait_sec(0.1);
     x11KeyPress($display,$window_id[0],'Return');
     print "GE tour started\n" if($debug);
     takeScreenshot("GE_tour_started") if($take_screenshot);

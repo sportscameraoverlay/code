@@ -83,8 +83,8 @@ our $num_rolling_avg_pts = 3; #Set to 0 if no rolling average is needed
 our @capture_res = (574, 514);
 
 #Timing settings
-our $ge_load_time=8;
-our $ge_first_point_wait = 3;
+our $ge_load_time=15;
+our $ge_first_point_wait = 5;
 our $screen_stabilise_wait = 0.8; #0.8sec
 our $screenshot_time = 0.5; #Guesstimate of the time taken (sec) to take a screenshot (only used for progress display)
 
