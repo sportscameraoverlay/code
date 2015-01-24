@@ -12,6 +12,7 @@
 # 2.00  PJ 27/01/14 Using ffmpeg exclusively now (no more melt)
 # 2.01  PJ 26/04/14 Fixed running script outside of sportscameraoverlay dir
 # 2.02  PJ 19/01/15 Changed ffmpeg loglevel to error
+# 2.03  PJ 24/01/15 Now properly resizing the track video so it fits
 #
 ###############################################################################
 
@@ -27,7 +28,7 @@ use SCPP::Common;
 
 BEGIN {
     require Exporter;
-    our $VERSION = 2.02;
+    our $VERSION = 2.03;
     our @ISA = qw(Exporter);
     our @EXPORT = qw(createVideo);
     our @EXPORT_OK = qw();
@@ -70,8 +71,16 @@ sub createVideo($$$$$$$$){
     #If we are overlaying the track:
     my $track_overlay_filter = '';
     my $track_vid = '';
-    $track_overlay_filter = "[ov1]; [ov1][2:v] overlay=$track_pos[0]:$track_pos[1]:shortest=$shortest" if($insert_track);
-    $track_vid = "-i $track_vid_file" if($insert_track);
+    
+    #We need to also resize the track video to fit the defined @track_pos
+
+   if($insert_track){
+       my $track_output_width = $track_pos[2] - $track_pos[0];
+       my $track_output_height = $track_pos[3] - $track_pos[1];
+    
+       $track_overlay_filter = "[ov1]; [2:v] scale=$track_output_width:$track_output_height [track]; [ov1][track] overlay=$track_pos[0]:$track_pos[1]:shortest=$shortest";
+       $track_vid = "-i $track_vid_file";
+    }
 
     #Preconstruct the filter_complex arguments:
     my $filters = "[0:v]" . $vid_in_rot_filter . "[1:v] overlay=0:0:shortest=$shortest" . $track_overlay_filter . " [out]";

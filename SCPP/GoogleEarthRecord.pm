@@ -16,6 +16,7 @@
 # 2.05  PJ 19/01/15 Using OS installed avconv for screen grab
 # 2.06  PJ 19/01/15 Smarter search for GE
 # 2.07  PJ 19/01/15 Fixed a few bugs with GE and the xdotool
+# 2.08  PJ 19/01/15 Now properly resizing the track video so it fits
 #
 ###############################################################################
 
@@ -44,7 +45,7 @@ my $display = 97; #Display # to use for the recording
 my $capture_codec = 'libx264';
 my $capture_quality = 'lossless_ultrafast';
 my $log_file = "$tmp_dir/RecordGE.log";
-my @xvfb_res = (1200, 900);
+my @xvfb_res = (1024, 768);
 my @ge_sidebar_point_v6 = (30,400); #update this by running in verbose mode and then opening the screenshot that is saved under /tmp with a point on the sidebar with the colour below... Note: this needs to be a point inside the "places" dialog.
 my @ge_sidebar_point_v7 = (30,390);
 my @ge_sidebar_point = @ge_sidebar_point_v6;

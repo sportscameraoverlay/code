@@ -5,6 +5,7 @@
 # History
 ###############################################################################
 # 1.00  PJ 26/04/13 First version as perl module
+# 1.01  PJ 24/01/15 Added text_colour to config.pm
 #
 ###############################################################################
 
@@ -17,7 +18,7 @@ use SCPP::Config qw(:debug :tmp :overlay :overlaysub);
 
 BEGIN {
     require Exporter;
-    our $VERSION = 1.00;
+    our $VERSION = 1.01;
     our @ISA = qw(Exporter);
     our @EXPORT = qw(speedo);
     our @EXPORT_OK = qw();
@@ -66,7 +67,7 @@ sub speedo($$$$){
     my $needle1 = $bim->colorAllocate(@red);
     my $needle2 = $bim->colorAllocate(@green);
     my $black = $bim->colorAllocate(@black);
-    my $text1 = $bim->colorAllocate(@white);
+    my $text1 = $bim->colorAllocate(@text_colour);
 
     my $deg_per_speed = ($speedo_max_angle - $speedo_min_angle) / $speedo_max_value;
     #Calculate the speed angles or set to min if data is invalid

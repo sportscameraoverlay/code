@@ -14,14 +14,14 @@ BEGIN {
     our $VERSION = 1.01;
     our @ISA = qw(Exporter);
     our @EXPORT = qw();
-    our @EXPORT_OK = qw($debug $program_dir $print_err $save_subs @capture_res $ge_load_time $ge_first_point_wait $screen_stabilise_wait $screenshot_time $debug_lvl_for_screenshot $stabilize_video $shakiness $dir_look_ahead $dir_look_behind $dir_min_dist $smooth_direction $num_rolling_avg_pts $overlay_type $images_per_sec $base_image_transparency $ge_path_vid @overlay_pos @track_pos @track_frame_colour $track_frame_thickness $overlay_size $base_image_file @green @white @blue @black @red $font_normal $font_narrow $vid_out_framerate $vid_length_tol_plus $vid_length_tol_minus $input_vid_rotation $stop_at_shortest $vid_out_codec $vid_out_quality $audio_out_codec $audio_out_bitrate $tmp_dir $subs_file_name setOverlayValues $map_file %kml_line_styles $kml_track_style $kml_flymode $kml_altitude $kml_tilt $kml_range $kml_altmode $kml_position_marker $kml_pos_marker_scale $xml_format $min_kml_path_dist $earths_radius $ffmpeg_64bit_url $ffmpeg_32bit_url);
+    our @EXPORT_OK = qw($debug $program_dir $print_err $save_subs @capture_res $ge_load_time $ge_first_point_wait $screen_stabilise_wait $screenshot_time $debug_lvl_for_screenshot $stabilize_video $shakiness $dir_look_ahead $dir_look_behind $dir_min_dist $smooth_direction $num_rolling_avg_pts $overlay_type $images_per_sec $base_image_transparency $ge_path_vid @overlay_pos @track_pos @track_frame_colour $track_frame_thickness $overlay_size $base_image_file @green @white @blue @black @red $font_normal $font_narrow @text_colour $vid_out_framerate $vid_length_tol_plus $vid_length_tol_minus $input_vid_rotation $stop_at_shortest $vid_out_codec $vid_out_quality $audio_out_codec $audio_out_bitrate $tmp_dir $subs_file_name setOverlayValues $map_file %kml_line_styles $kml_track_style $kml_flymode $kml_altitude $kml_tilt $kml_range $kml_altmode $kml_position_marker $kml_pos_marker_scale $xml_format $min_kml_path_dist $earths_radius $ffmpeg_64bit_url $ffmpeg_32bit_url);
     our %EXPORT_TAGS =(
         debug => [qw($debug $print_err $save_subs $program_dir)],
         gerecord => [qw(@capture_res $ge_load_time $ge_first_point_wait $screen_stabilise_wait $screenshot_time $debug_lvl_for_screenshot)],
         imgstab => [qw($stabilize_video $shakiness)],
         directionsmooth => [qw($dir_look_ahead $dir_look_behind $dir_min_dist $smooth_direction $num_rolling_avg_pts)],
         overlay => [qw($overlay_type $images_per_sec @overlay_pos $overlay_size @track_pos @track_frame_colour $track_frame_thickness)],
-        overlaysub => [qw($base_image_file @green @white @blue @black @red $font_normal $font_narrow)],
+        overlaysub => [qw($base_image_file @green @white @blue @black @red $font_normal $font_narrow @text_colour)],
         video => [qw($vid_out_framerate $vid_length_tol_plus $vid_length_tol_minus $base_image_transparency $ge_path_vid @track_pos $input_vid_rotation $stop_at_shortest)],
         vidoutset => [qw($vid_out_codec $vid_out_quality $audio_out_codec $audio_out_bitrate)],
         tmp => [qw($tmp_dir $subs_file_name)],
@@ -53,7 +53,7 @@ our $ffmpeg_32bit_url = 'http://ffmpeg.gusari.org/static/32bit/ffmpeg.static.32b
 #################################################
 our $vid_out_framerate = 0; #If set to zero use the same framerate as the input video
 our $vid_length_tol_plus = 2; #Number of sec that the length of the video can be longer than the subtiles
-our $vid_length_tol_minus = 300; #Number of sec that the length of the video can be shorter than the subtiles
+our $vid_length_tol_minus = 50; #Number of sec that the length of the video can be shorter than the subtiles
 our $stop_at_shortest = 1; #Whether to stop after the shortest video/track/overlay has finished or not
 #Video Output settings 
 our $vid_out_codec = 'libx264';
@@ -80,7 +80,7 @@ our $num_rolling_avg_pts = 3; #Set to 0 if no rolling average is needed
 #Google Earth tour settings
 #################################################
 #Capture size
-our @capture_res = (574, 514);
+our @capture_res = (450,450);
 
 #Timing settings
 our $ge_load_time=15;
@@ -164,6 +164,7 @@ our @white = (255,255,255);
 #Some Fonts
 our $font_normal='/usr/share/fonts/truetype/ubuntu-font-family/Ubuntu-B.ttf';
 our $font_narrow='/usr/share/fonts/truetype/ubuntu-font-family/Ubuntu-C.ttf';
+our @text_colour = @white;
 
 #Track frame settings
 our @track_frame_colour = @black;
@@ -190,15 +191,25 @@ sub setOverlayValues(){
         @overlay_pos = (0, 100); #X,Y percentage position
         $overlay_size = 60;
         $base_image_file = 'Images/board-frosty.png';
-        @track_pos = (1000, 500, 1918, 1078);
+        #@track_pos = (1566, 817, 1918, 1078); #1080p 4:3
+        #@track_pos = (1566, 726, 1918, 1078); #1080p 1:1
+        #@track_pos = (1046, 544, 1278, 718); #720p 4:3
+        @track_pos = (1046, 486, 1278, 718); #720p 1:1
+        #@track_pos = (1218, 553, 1918, 1078); #1080p - Double size
+        #@track_pos = (814, 370, 1278, 718); #720p - Double size
     }
     elsif($overlay_type =~ /speedo/) {
-        $images_per_sec = 10;
+        $images_per_sec = 12;
         $base_image_transparency = 100;
         @overlay_pos = (0, 100); #X,Y percentage position
         $overlay_size = 70;
         $base_image_file = 'Images/speedo.png';
-        @track_pos = (1000, 500, 1918, 1078);
+        #@track_pos = (1566, 817, 1918, 1078); #1080p 4:3
+        #@track_pos = (1566, 726, 1918, 1078); #1080p 1:1
+        #@track_pos = (1046, 544, 1278, 718); #720p 4:3
+        @track_pos = (1046, 486, 1278, 718); #720p 1:1
+        #@track_pos = (1218, 553, 1918, 1078); #1080p - Double size
+        #@track_pos = (814, 370, 1278, 718); #720p - Double size
     }
 
     else{
