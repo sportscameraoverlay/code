@@ -1,3 +1,5 @@
+Migrated from Sourceforge...
+
 SportsCameraOverlay is a command line facility to overlay GPS info on videos taken with a sports (helmet) camera.
 
 Currently tested and working with a Contour GPS and a Contour+2 camera.
